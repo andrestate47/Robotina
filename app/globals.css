@@ -1,0 +1,286 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.98 0.005 85);
+  --foreground: oklch(0.15 0.01 85);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.01 85);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.01 85);
+  --primary: oklch(0.35 0.08 265);
+  --primary-foreground: oklch(0.98 0.005 85);
+  --secondary: oklch(0.92 0.01 85);
+  --secondary-foreground: oklch(0.15 0.01 85);
+  --muted: oklch(0.95 0.005 85);
+  --muted-foreground: oklch(0.5 0.01 85);
+  --accent: oklch(0.55 0.15 145);
+  --accent-foreground: oklch(0.98 0.005 85);
+  --success: oklch(0.6 0.15 145);
+  --success-foreground: oklch(0.98 0.005 85);
+  --warning: oklch(0.75 0.15 65);
+  --warning-foreground: oklch(0.15 0.01 85);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 85);
+  --border: oklch(0.9 0.005 85);
+  --input: oklch(0.9 0.005 85);
+  --ring: oklch(0.35 0.08 265);
+  --radius: 0.75rem;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: rgb(9, 14, 24); /* azul casi negro */
+  --foreground: rgb(138, 188, 217); /* verde neón claro */
+  --card: rgb(20, 24, 41); /* azul petróleo */
+  --card-foreground: rgb(138, 188, 217);
+  --popover: rgb(28, 32, 50); /* azul oscuro púrpura */
+  --popover-foreground: rgb(138, 188, 217);
+
+  --primary: rgb(72, 106, 129); /* cyan apagado */
+  --primary-foreground: rgb(9, 14, 24);
+
+  --secondary: rgb(47, 56, 80); /* azul gris oscuro */
+  --secondary-foreground: rgb(138, 188, 217);
+
+  --muted: rgb(13, 19, 35); /* azul gris muy oscuro */
+  --muted-foreground: rgb(138, 188, 217);
+
+  --accent: rgb(138, 188, 217);
+  --accent-foreground: rgb(9, 14, 24);
+
+  --success: rgb(0, 255, 180); /* verde cian brillante */
+  --success-foreground: rgb(9, 14, 24);
+
+  --warning: rgb(255, 215, 0);
+  --warning-foreground: rgb(9, 14, 24);
+
+  --destructive: rgb(255, 60, 80);
+  --destructive-foreground: rgb(9, 14, 24);
+
+  --border: rgb(47, 56, 80);
+  --input: rgb(20, 24, 41);
+  --ring: rgb(138, 188, 217);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+
+/* === Fondo animado circular cyberpunk === */
+
+@keyframes cyberGradientRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cyberGlow {
+  0%, 100% {
+    opacity: 0.25;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.6;
+    filter: brightness(1.7);
+  }
+}
+
+.animate-gradient-circular {
+  position: absolute;
+  inset: -3px;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg,
+    rgba(0, 255, 180, 0.9) 0deg,
+    rgba(72, 106, 129, 0.9) 90deg,
+    rgba(138, 188, 217, 0.8) 180deg,
+    rgba(28, 32, 50, 0.8) 270deg,
+    rgba(0, 255, 180, 0.9) 360deg
+  );
+  border-radius: 1rem;
+  animation: cyberGradientRotate 8s linear infinite, cyberGlow 6s ease-in-out infinite;
+  filter: blur(60px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+
+
+/* === Fondo hero estilo Abacus / AI tech === */
+.cyber-gradient {
+  background: radial-gradient(
+      circle at 60% 30%,
+      rgba(0, 255, 200, 0.08) 0%,
+      rgba(0, 150, 255, 0.05) 25%,
+      rgba(10, 20, 40, 1) 80%,
+      rgb(5, 10, 20) 100%
+  );
+  color: rgba(220, 230, 245, 0.95); /* Texto casi blanco */
+  border: 1px solid rgba(0, 255, 255, 0.05);
+  border-radius: 1.5rem;
+  box-shadow: 0 0 60px rgba(0, 255, 255, 0.08),
+              inset 0 0 40px rgba(0, 255, 255, 0.02);
+  transition: all 0.3s ease-in-out;
+  background-size: 200% 200%;
+}
+
+/* Sutil resplandor al pasar el mouse */
+.cyber-gradient:hover {
+  box-shadow: 0 0 80px rgba(0, 255, 255, 0.15),
+              inset 0 0 50px rgba(0, 255, 255, 0.05);
+}
+
+/* Para contraste legible del texto dentro */
+.cyber-gradient h1,
+.cyber-gradient h2,
+.cyber-gradient h3 {
+  color: rgb(235, 240, 255);
+}
+
+.cyber-gradient p {
+  color: rgba(200, 210, 225, 0.9);
+}
+
+.cyber-gradient span,
+.cyber-gradient strong,
+.cyber-gradient .highlight {
+  color: rgb(0, 200, 255); /* Azul cian brillante */
+}
+
+
+/* Efecto hover ligero (si quieres animación sutil) */
+.cyber-gradient:hover {
+  box-shadow: 0 0 40px rgba(138, 188, 217, 0.25),
+              inset 0 0 25px rgba(0, 255, 180, 0.1);
+  transform: scale(1.01);
+}
+
+
+/* === ✨ Glow ambiental animado === */
+.cyber-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 70% 40%,
+    rgba(0, 255, 255, 0.12),
+    transparent 70%
+  );
+  z-index: 0;
+  animation: pulseGlow 12s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.05); }
+}
+
+
+
+
+/* === Fondo global estilo Abacus / AI tech === */
+.global-cyber-bg {
+  background: radial-gradient(
+      circle at 60% 30%,
+      rgba(0, 255, 200, 0.06) 0%,
+      rgba(0, 150, 255, 0.04) 25%,
+      rgb(10, 15, 25) 80%,
+      rgb(5, 10, 20) 100%
+  );
+  background-attachment: fixed;
+  color: rgba(230, 235, 250, 0.95);
+  min-height: 100vh;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ✨ Glow ambiental animado */
+.global-cyber-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    circle at 70% 40%,
+    rgba(0, 255, 255, 0.08),
+    transparent 70%
+  );
+  z-index: -1;
+  animation: globalGlow 16s ease-in-out infinite;
+}
+
+@keyframes globalGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.03); }
+}
