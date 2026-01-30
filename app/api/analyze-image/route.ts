@@ -1,15 +1,83 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getMarketData } from "@/lib/services/market"
 
 export async function POST(req: NextRequest) {
   try {
-    const { data } = await req.json()
+    const { data, symbol, tradingStyle } = await req.json()
 
     if (!data) {
       return NextResponse.json({ error: "No se envió ninguna imagen." }, { status: 400 })
     }
 
     console.log("📤 Imagen recibida del frontend:", data.slice(0, 80))
-    console.log("📡 Enviando payload a OpenAI...")
+
+    // 🔍 Paso 1: Identificar Símbolo (Si el usuario no lo dio)
+    let activeSymbol = symbol?.toUpperCase().trim()
+
+    if (!activeSymbol) {
+      console.log("🕵️‍♂️ Usuario no dio símbolo. Intentando detectar automáticamente con IA...")
+      try {
+        const detectionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-2024-08-06",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "Identify the financial asset symbol/ticker in this chart (e.g., BTC, AAPL, EURUSD, TSLA). Return ONLY the symbol text. If unsure or generic, return 'UNKNOWN'." },
+                  { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
+                ],
+              },
+            ],
+            max_tokens: 10,
+          }),
+        })
+        const detectionResult = await detectionResponse.json()
+        const detectedObj = detectionResult.choices?.[0]?.message?.content?.trim()
+
+        if (detectedObj && detectedObj !== "UNKNOWN") {
+          // Limpiar posibles puntos o texto extra
+          activeSymbol = detectedObj.replace(/\.$/, "").trim()
+          console.log(`🧠 IA detectó símbolo: ${activeSymbol}`)
+        }
+      } catch (e) {
+        console.error("⚠️ Error detectando símbolo:", e)
+      }
+    }
+
+    // 🔍 Paso 2: Obtener datos de mercado reales
+    let marketInfoText = ""
+    let marketData = null
+
+    if (activeSymbol) {
+      console.log(`🔎 Buscando datos para símbolo: ${activeSymbol}`)
+      marketData = await getMarketData(activeSymbol)
+
+      if (marketData) {
+        marketInfoText = `
+DATA DE MERCADO REAL (${marketData.source}) - Prioridad MÁXIMA:
+- Activo: ${marketData.symbol}
+- Precio Actual: $${marketData.price}
+- Cambio 24h: ${marketData.change24h}%
+- Volumen: ${marketData.volume24h}
+
+INSTRUCCIÓN CRÍTICA DE RESPUESTA:
+1. NUNCA devuelvas "null" en entrada/salida/stop_loss. SIEMPRE calcula valores hipotéticos o niveles de referencia (Soporte/Resistencia).
+2. Si el análisis es "NEUTRO", usa el Soporte más cercano como "entrada" (compra ideal) y la Resistencia como "salida".
+3. Si el gráfico es ANTIGUO (precio diferente al real): IGNORA el precio de la imagen. Crea un plan de trading basado en el PRECIO REAL suministrado ("Precio Actual").
+4. Sé valiente: Prefiere dar un plan "LONG" o "SHORT" basado en la tendencia macro del precio real antes que un "NEUTRO" vacío.
+
+Estructura JSON requerida (campos numéricos OBLIGATORIOS):
+`
+      }
+    }
+
+    console.log("📡 Enviando payload a OpenAI para análisis final...")
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -25,31 +93,49 @@ export async function POST(req: NextRequest) {
             content: [
               {
                 type: "text",
-                text: `Analiza cuidadosamente la imagen adjunta. Es un gráfico financiero (análisis técnico) que muestra posibles puntos de entrada, salida y stop loss.
-Tu tarea es:
+                text: `Analiza cuidadosamente la imagen adjunta. Es un gráfico financiero (análisis técnico).
+${marketInfoText}
 
-Interpretar los datos visuales del gráfico: tendencia, niveles clave, indicadores, patrones y volumen.
+Tu misión es combinar el ANÁLISIS VISUAL con los DATOS EN TIEMPO REAL:
 
-Generar una recomendación técnica en formato JSON con la siguiente estructura y campos exactos:
+ESTILO DE TRADING ELEGIDO: ${tradingStyle ? tradingStyle.toUpperCase() : "INTRADAY"}
+1. Ajusta los TPs y SL según el estilo:
+   - SCALPING: Busca movimientos rápidos (15m - 1h). SL muy ajustado, TPs cortos.
+   - INTRADAY: Busca movimientos de la sesión (4h - 1D). SL moderado.
+   - SWING: Busca tendencias de días/semanas. SL amplio, TPs lejanos esperando grandes recorridos.
+
+2. COMPARA fechas/precios: Si el precio en la imagen es muy distinto al "Precio Actual" provisto arriba, ADVIERTE que el gráfico podría ser antiguo.
+3. VALIDA la tendencia: Si el gráfico parece alcista pero el "Cambio 24h" es muy negativo, recomienda precaución extra.
+3. VALIDACIÓN LÓGICA OBLIGATORIA (Anti-Confusión):
+   - El usuario quiere ACCIÓN INMEDIATA o CERCANA.
+   - Si es LONG o NEUTRO: La Salida (TP) *SIEMPRE* debe ser MAYOR al "Precio Actual" (Breakout o continuación). NUNCA des un TP menor al precio actual.
+   - Si es SHORT: La Salida (TP) *SIEMPRE* debe ser MENOR al "Precio Actual".
+   - La "Entrada" debe estar cerca del precio actual (máximo 0.5% de diferencia) para que el plan sea ejecutable YA, salvo que sea Swing.
+
+4. Lee niveles clave: Soporte, resistencia, canales.
+
+Genera un recomendación técnica en formato JSON con esta estructura exacta:
 
 {
-  "tipo_analisis": "LONG" | "SHORT",
+  "tipo_analisis": "LONG" | "SHORT" | "NEUTRO",
   "entrada": 0.0,
   "salida": 0.0,
   "stop_loss": 0.0,
   "confianza": "Alta" | "Media" | "Baja",
-  "patron_detectado": "Nombre del patrón o tendencia (ej. Doble suelo, Canal alcista, etc.)",
-  "indicadores_clave": ["RSI", "MACD", "EMA 20", "Volumen", "..."],
-  "comentario": "Resumen claro y profesional sobre la lectura del gráfico, la dirección de la tendencia, y el consejo operativo."
+  "patron_detectado": "Nombre del patrón",
+  "indicadores_clave": ["RSI", "MACD", "EMA", "Volumen", "Divergencia", ...],
+  "comentario": "Análisis crítico. DEBES mencionar explícitamente si el precio real confirma o contradice el gráfico. Justifica la entrada."
 }
 
 Sé extremadamente preciso con los niveles numéricos (entrada, salida, stop loss) y coherente con la dirección de la tendencia.
 
-No inventes valores si no se pueden estimar con claridad; en ese caso, marca el campo con null.
+No inventes valores NUMÉRICOS (entrada, salida) si no se pueden estimar; usa null.
 
-Usa tono profesional, analítico y breve, como si fuera un informe para traders avanzados.
+PERO los campos de TEXTO (patron_detectado, comentario, confianza) SIEMPRE deben tener contenido. Si no hay patrón claro, pon "Indefinido" o "Consolidación".
 
-No agregues texto fuera del JSON.
+Usa tono profesional, analítico y breve.
+
+IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON, sin texto antes ni después.
 
 Ejemplo de salida esperada:
 
@@ -86,20 +172,37 @@ Ejemplo de salida esperada:
     }
 
     const content = result?.choices?.[0]?.message?.content || ""
-    let parsedJSON = {}
+    let parsedJSON: any = {}
 
     try {
-      const match = content.match(/{[\s\S]*}/)
-      if (match) parsedJSON = JSON.parse(match[0])
+      // Limpiar bloques de código Markdown si existen (```json ... ```)
+      const cleanContent = content.replace(/```json/g, "").replace(/```/g, "").trim()
+
+      const match = cleanContent.match(/{[\s\S]*}/)
+      if (match) {
+        parsedJSON = JSON.parse(match[0])
+      } else {
+        throw new Error("No JSON found")
+      }
     } catch (err) {
       console.warn("⚠️ No se pudo parsear el JSON:", err)
-      parsedJSON = { comentario: "No se pudo interpretar la respuesta del modelo." }
+      console.log("Raw Content:", content) // Debug
+      parsedJSON = {
+        patron_detectado: "Análisis no estructurado",
+        comentario: content || "Error al interpretar la respuesta de la IA.",
+        confianza: "Baja"
+      }
     }
 
     // ✅ Corrección automática de tipo_analisis si falta
     if (!parsedJSON["tipo_analisis"] && parsedJSON["entrada"] && parsedJSON["salida"]) {
       parsedJSON["tipo_analisis"] =
         Number(parsedJSON["salida"]) > Number(parsedJSON["entrada"]) ? "LONG" : "SHORT"
+    }
+
+    // 🧬 Inyectar Market Data real en la respuesta final para mostrar en el frontend
+    if (marketData) {
+      parsedJSON["datos_mercado"] = marketData
     }
 
     return NextResponse.json(parsedJSON)

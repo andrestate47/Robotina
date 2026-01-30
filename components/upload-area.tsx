@@ -1,8 +1,11 @@
+
 "use client"
 
-import { useState, useCallback, useRef } from "react"
-import { Upload, ImageIcon, X, BarChart3, AlertTriangle, CheckCircle2 } from "lucide-react"
+import React, { useState, useCallback, useRef } from "react"
+import { Upload, ImageIcon, X, BarChart3, AlertTriangle, CheckCircle2, Search, Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 
@@ -23,7 +26,44 @@ interface AnalysisResult {
   salida?: string
   stop_loss?: string
   indicadores_clave?: string[]
+  datos_mercado?: {
+    symbol: string
+    price: number
+    change24h: number
+    high24h?: number
+    low24h?: number
+    source: string
+  }
 }
+
+const POPULAR_ASSETS = [
+  { symbol: "BTC", name: "Bitcoin" },
+  { symbol: "ETH", name: "Ethereum" },
+  { symbol: "SOL", name: "Solana" },
+  { symbol: "XRP", name: "Ripple" },
+  { symbol: "BNB", name: "Binance Coin" },
+  { symbol: "ADA", name: "Cardano" },
+  { symbol: "DOGE", name: "Dogecoin" },
+  { symbol: "AVAX", name: "Avalanche" },
+  { symbol: "LINK", name: "Chainlink" },
+  { symbol: "DOT", name: "Polkadot" },
+  { symbol: "MATIC", name: "Polygon" },
+  { symbol: "LTC", name: "Litecoin" },
+  { symbol: "AAPL", name: "Apple Inc." },
+  { symbol: "MSFT", name: "Microsoft" },
+  { symbol: "GOOGL", name: "Alphabet (Google)" },
+  { symbol: "AMZN", name: "Amazon" },
+  { symbol: "TSLA", name: "Tesla" },
+  { symbol: "NVDA", name: "Nvidia" },
+  { symbol: "META", name: "Meta (Facebook)" },
+  { symbol: "NFLX", name: "Netflix" },
+  { symbol: "EURUSD", name: "Euro / US Dollar" },
+  { symbol: "GBPUSD", name: "GBP / US Dollar" },
+  { symbol: "USDJPY", name: "US Dollar / JPY" },
+  { symbol: "XAUUSD", name: "Gold Spot / US Dollar" },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF" },
+  { symbol: "QQQ", name: "Invesco QQQ Trust" },
+]
 
 export function UploadArea() {
   const [isDragging, setIsDragging] = useState(false)
@@ -31,6 +71,9 @@ export function UploadArea() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [symbol, setSymbol] = useState("")
+  const [tradingStyle, setTradingStyle] = useState("intraday")
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 🧲 Drag & Drop
@@ -65,6 +108,24 @@ export function UploadArea() {
     }
   }, [])
 
+  // 📋 Paste from clipboard
+  React.useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (e.clipboardData?.files.length) {
+        const file = e.clipboardData.files[0]
+        if (file && file.type.startsWith("image/")) {
+          e.preventDefault()
+          const reader = new FileReader()
+          reader.onload = (e) => setUploadedImage(e.target?.result as string)
+          reader.readAsDataURL(file)
+        }
+      }
+    }
+
+    window.addEventListener("paste", handlePaste)
+    return () => window.removeEventListener("paste", handlePaste)
+  }, [])
+
   // 🚀 Enviar imagen al backend
   const handleAnalyze = async () => {
     if (!uploadedImage) return
@@ -76,7 +137,7 @@ export function UploadArea() {
       const response = await fetch("/api/analyze-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: uploadedImage }),
+        body: JSON.stringify({ data: uploadedImage, symbol, tradingStyle }),
       })
 
       if (!response.ok) throw new Error(`Error del servidor: ${response.status}`)
@@ -117,24 +178,104 @@ export function UploadArea() {
   return (
     <div className="max-w-4xl mx-auto relative overflow-hidden rounded-2xl border border-border shadow-lg">
 
-  {/* Fondo con imagen */}
-  <div
-    className="absolute inset-0 bg-cover bg-center"
-    style={{ backgroundImage: "url('/images/bg-trading.png')" }}
-  ></div>
+      {/* Fondo con imagen */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/bg-trading-v2.png')" }}
+      ></div>
 
-  {/* Overlay suave */}
-  <div className="absolute inset-0 bg-slate-100/80"></div>
+      {/* Overlay suave */}
+      {/* Overlay tipo cristal */}
+      <div className="absolute inset-0 bg-[#0B2239]/55 backdrop-blur-sm"></div>
 
-  {/* Contenido */}
-  <div className="relative z-10 p-6 sm:p-8 md:p-1 rounded-2xl bg-[#0B2239]">
-    {/* tu contenido */}
-  </div>
+      {/* Contenido principal */}
+      <div className="relative z-10 p-6 sm:p-8 md:p-10">
 
+        {/* Input de Símbolo (Nuevo) */}
+        {!analysisResult && (
+          <div className="mb-6 max-w-sm mx-auto">
+            <Label htmlFor="symbol" className="text-white mb-2 block font-medium">
+              Activo / Símbolo (Opcional)
+            </Label>
+            <div className="relative">
+              <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="symbol"
+                placeholder="Ej. BTC, AAPL, EURUSD"
+                value={symbol}
+                onChange={(e) => {
+                  setSymbol(e.target.value)
+                  setShowSuggestions(true)
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="pl-9 bg-background/50 border-white/20 text-white placeholder:text-white/40 focus:border-primary"
+                autoComplete="off"
+              />
 
-      {/* Contenido principal con blur suave */}
-         <div className="relative z-10 p-6 sm:p-8 md:p-1  rounded-2xl bg-[#081A2D]">
-          <div
+              {/* Sugerencias de Autocompletado */}
+              {showSuggestions && symbol.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f172a] border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                  {POPULAR_ASSETS.filter(
+                    (asset) =>
+                      asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
+                      asset.name.toLowerCase().includes(symbol.toLowerCase())
+                  ).length > 0 ? (
+                    POPULAR_ASSETS.filter(
+                      (asset) =>
+                        asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
+                        asset.name.toLowerCase().includes(symbol.toLowerCase())
+                    ).map((asset) => (
+                      <div
+                        key={asset.symbol}
+                        className="px-4 py-2 hover:bg-primary/20 cursor-pointer flex items-center justify-between text-sm transition-colors"
+                        onPointerDown={() => {
+                          setSymbol(asset.symbol)
+                          setShowSuggestions(false)
+                        }}
+                      >
+                        <span className="font-bold text-white">{asset.symbol}</span>
+                        <span className="text-white/50 text-xs">{asset.name}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-xs text-white/30 text-center">
+                      Sin coincidencias
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-white/60 mt-1.5 ml-1 mb-4">
+              Ayuda a la IA a buscar precios precisos en tiempo real.
+            </p>
+
+            {/* Selector de Estilo de Trading */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "scalping", label: "Scalping", sub: "Mins" },
+                { id: "intraday", label: "Intraday", sub: "Horas" },
+                { id: "swing", label: "Swing", sub: "Días" }
+              ].map((style) => (
+                <div
+                  key={style.id}
+                  onClick={() => setTradingStyle(style.id)}
+                  className={cn(
+                    "cursor-pointer rounded-lg border p-2 text-center transition-all",
+                    tradingStyle === style.id
+                      ? "bg-primary/40 border-primary text-white font-bold shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                      : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <p className="text-xs font-bold">{style.label}</p>
+                  <p className="text-[9px] opacity-70">{style.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -200,87 +341,188 @@ export function UploadArea() {
               </div>
 
               {/* 📡 Estado del análisis */}
-              
+
+
+              {/* 📡 Estado del análisis */}
+              {statusMessage && !analysisResult && (
+                <div className="mt-4 p-3 rounded-lg bg-card/60 border border-white/10 text-center animate-in fade-in slide-in-from-bottom-2">
+                  <p className="text-sm font-medium text-white/80">{statusMessage}</p>
+                </div>
+              )}
 
               {/* 🟢 Resultados */}
               {analysisResult && !analysisResult.error && (
                 <motion.div
-                  className="mt-6 p-6 rounded-xl bg-muted/40 border border-border space-y-6"
-                  initial={{ opacity: 0, y: 20 }}
+                  className="mt-4 p-4 rounded-lg bg-muted/40 border border-border space-y-5"
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <h3 className="text-xl font-bold text-foreground flex items-center gap-2">📊 Lector de Gráficas</h3>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <motion.div
+                      whileInView={{
+                        rotate: [0, -15, 10, -5, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        repeatDelay: 3,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Search className="w-5 h-5 text-primary" />
+                    </motion.div>
+                    Lector de Gráficas
+                    {analysisResult.datos_mercado && (
+                      <span className="text-[10px] font-normal bg-blue-900/30 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        En Vivo • {analysisResult.datos_mercado.source}
+                      </span>
+                    )}
+                  </h3>
 
-                  {/* Patrón detectado */}
-                  <div className="bg-card/60 border p-4 rounded-xl">
-                    <p className="text-sm text-muted-foreground">📉 Patrón detectado</p>
-                    <p className="text-lg font-semibold text-foreground">
-                      {analysisResult.patron_detectado || "—"}
-                    </p>
-                  </div>
+                  {/* 📊 Datos de Mercado en Tiempo Real (Si existen) */}
+                  {analysisResult.datos_mercado && (
+                    <div className="bg-[#0f172a] border border-blue-500/20 rounded-lg p-3 flex items-center justify-between shadow-sm z-20 relative">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                          <Coins className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                            {analysisResult.datos_mercado.symbol}
+                          </p>
+                          <p className="text-lg font-bold text-white leading-none">
+                            ${analysisResult.datos_mercado.price.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-[100px]">
+                        <span className="text-[10px] text-white/50 font-normal mb-1 uppercase tracking-wider">Rango Día ($)</span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-green-400 text-xs flex items-center gap-1">
+                            <span className="text-[9px] opacity-70">H:</span>
+                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString() : "N/A"}
+                          </span>
+                          <span className="text-red-400 text-xs flex items-center gap-1">
+                            <span className="text-[9px] opacity-70">L:</span>
+                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString() : "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Tipo de análisis y confianza */}
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="bg-card/60 border p-4 rounded-xl text-center">
-                      <p className="text-sm text-muted-foreground mb-1">📊 Tipo de análisis</p>
-                      <p
-                        className={cn(
-                          "text-lg font-semibold",
-                          analysisResult.tipo_analisis === "LONG"
-                            ? "text-green-600"
-                            : analysisResult.tipo_analisis === "SHORT"
-                            ? "text-red-600"
-                            : "text-foreground"
-                        )}
-                      >
-                        {analysisResult.tipo_analisis || "—"}
+                  {/* Fila 1: Patrón y (Tipo + Confianza) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {/* Patrón detectado */}
+                    <div className="bg-card/60 border p-2 rounded-lg flex flex-col justify-center">
+                      <p className="text-xs text-muted-foreground">📉 Patrón detectado</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {analysisResult.patron_detectado || "—"}
                       </p>
                     </div>
 
-                    <div className="bg-card/60 border p-4 rounded-xl text-center">
-                      <p className="text-sm text-muted-foreground mb-1">🎯 Confianza</p>
-                      <p
-                        className={cn(
-                          "text-lg font-semibold",
-                          analysisResult.confianza === "Alta"
-                            ? "text-green-600"
-                            : analysisResult.confianza === "Media"
-                            ? "text-yellow-600"
-                            : "text-red-600"
-                        )}
-                      >
-                        {analysisResult.confianza || "—"}
-                      </p>
+                    {/* Tipo de análisis y confianza */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-card/60 border p-2 rounded-lg text-center flex flex-col items-center justify-center">
+                        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 justify-center">
+                          {analysisResult.tipo_analisis === "LONG" ? (
+                            <motion.span
+                              animate={{ y: [0, -3, 0], scale: [1, 1.1, 1] }}
+                              transition={{ duration: 3, ease: "easeInOut" }}
+                              className="text-base inline-block"
+                            >
+                              🐂
+                            </motion.span>
+                          ) : analysisResult.tipo_analisis === "SHORT" ? (
+                            <motion.span
+                              animate={{ y: [0, 3, 0], scale: [1, 1.1, 1] }}
+                              transition={{ duration: 3, ease: "easeInOut" }}
+                              className="text-base inline-block"
+                            >
+                              🐻
+                            </motion.span>
+                          ) : (
+                            "📊"
+                          )}
+                          Tipo
+                        </p>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            analysisResult.tipo_analisis === "LONG"
+                              ? "text-green-600"
+                              : analysisResult.tipo_analisis === "SHORT"
+                                ? "text-red-600"
+                                : "text-foreground"
+                          )}
+                        >
+                          {analysisResult.tipo_analisis || "—"}
+                        </p>
+                      </div>
+
+                      <div className="bg-card/60 border p-2 rounded-lg text-center">
+                        <p className="text-xs text-muted-foreground mb-1">🎯 Confianza</p>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            analysisResult.confianza === "Alta"
+                              ? "text-green-600"
+                              : analysisResult.confianza === "Media"
+                                ? "text-yellow-600"
+                                : "text-red-600"
+                          )}
+                        >
+                          {analysisResult.confianza || "—"}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Entrada / Salida / Stop Loss */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-green-50 text-green-800 rounded-xl p-4 text-center shadow-sm">
-                      <p className="font-medium">🎯 Entrada</p>
-                      <p className="text-xl font-bold">{analysisResult.entrada ?? "—"}</p>
+                  {/* Entrada / TP */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center">
+                      <p className="text-xs font-medium">🎯 Entrada</p>
+                      <p className="text-sm font-bold">{analysisResult.entrada ? `$${analysisResult.entrada}` : "N/A"}</p>
                     </div>
-                    <div className="bg-blue-50 text-blue-800 rounded-xl p-4 text-center shadow-sm">
-                      <p className="font-medium">💵 Salida</p>
-                      <p className="text-xl font-bold">{analysisResult.salida ?? "—"}</p>
+                    {/* TP Container Loop */}
+                    <div className="flex flex-col gap-1">
+                      <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3">
+                        <p className="text-[10px] font-medium">TP 1</p>
+                        <p className="text-xs font-bold">
+                          {analysisResult.entrada && analysisResult.salida
+                            ? `$${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toFixed(2)}`
+                            : "N/A"}
+                        </p>
+                      </div>
+                      <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3">
+                        <p className="text-[10px] font-medium">TP 2</p>
+                        <p className="text-xs font-bold">{analysisResult.salida ? `$${analysisResult.salida}` : "N/A"}</p>
+                      </div>
                     </div>
-                    <div className="bg-red-50 text-red-800 rounded-xl p-4 text-center shadow-sm">
-                      <p className="font-medium">🛑 Stop Loss</p>
-                      <p className="text-xl font-bold">{analysisResult.stop_loss ?? "—"}</p>
-                    </div>
+                  </div>
+
+                  {/* Stop Loss */}
+                  <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm">
+                    <p className="text-xs font-medium">🛑 Stop Loss</p>
+                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `$${analysisResult.stop_loss}` : "N/A"}</p>
                   </div>
 
                   {/* Indicadores clave */}
-                  <div className="bg-card border p-4 rounded-xl space-y-3">
-                    <p className="text-sm text-muted-foreground">🧩 Indicadores clave</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="bg-card border p-2 rounded-lg space-y-2">
+                    <p className="text-xs text-muted-foreground">🧩 Indicadores clave</p>
+                    <div className="flex flex-wrap gap-1">
                       {Array.isArray(analysisResult.indicadores_clave) &&
-                      analysisResult.indicadores_clave.length > 0 ? (
+                        analysisResult.indicadores_clave.length > 0 ? (
                         analysisResult.indicadores_clave.map((ind, i) => (
                           <span
                             key={i}
-                            className="px-3 py-1 rounded-full text-sm bg-primary/10 text-primary border border-primary/20"
+                            className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
                           >
                             {ind}
                           </span>
@@ -293,9 +535,12 @@ export function UploadArea() {
 
                   {/* Comentario */}
                   {analysisResult.comentario && (
-                    <div className="border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent p-4 rounded-xl">
-                      <p className="text-sm text-muted-foreground mb-1">💬 Comentario del analista</p>
-                      <p className="text-foreground leading-relaxed">{analysisResult.comentario}</p>
+                    <div className="border border-white/10 bg-slate-950/60 p-3 rounded-xl shadow-inner">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-1 h-4 bg-amber-400 rounded-full"></div>
+                        <p className="text-xs font-bold text-amber-400 uppercase tracking-wide">Comentario del Analista</p>
+                      </div>
+                      <p className="text-sm text-gray-200 leading-relaxed font-light tracking-wide">{analysisResult.comentario}</p>
                     </div>
                   )}
                 </motion.div>
