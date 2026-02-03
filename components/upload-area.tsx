@@ -486,13 +486,13 @@ export function UploadArea() {
 
                   {/* Entrada / TP */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center">
+                    <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
                       <p className="text-xs font-medium">🎯 Entrada</p>
                       <p className="text-sm font-bold">{analysisResult.entrada ? `$${analysisResult.entrada}` : "N/A"}</p>
                     </div>
                     {/* TP Container Loop */}
                     <div className="flex flex-col gap-1">
-                      <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3">
+                      <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 1</p>
                         <p className="text-xs font-bold">
                           {analysisResult.entrada && analysisResult.salida
@@ -500,7 +500,7 @@ export function UploadArea() {
                             : "N/A"}
                         </p>
                       </div>
-                      <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3">
+                      <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 2</p>
                         <p className="text-xs font-bold">{analysisResult.salida ? `$${analysisResult.salida}` : "N/A"}</p>
                       </div>
@@ -508,7 +508,7 @@ export function UploadArea() {
                   </div>
 
                   {/* Stop Loss */}
-                  <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm">
+                  <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
                     <p className="text-xs font-medium">🛑 Stop Loss</p>
                     <p className="text-sm font-bold">{analysisResult.stop_loss ? `$${analysisResult.stop_loss}` : "N/A"}</p>
                   </div>
