@@ -397,7 +397,7 @@ export function UploadArea() {
                             {analysisResult.datos_mercado.symbol}
                           </p>
                           <p className="text-lg font-bold text-white leading-none">
-                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
@@ -406,11 +406,11 @@ export function UploadArea() {
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-green-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">H:</span>
-                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "N/A"}
+                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A"}
                           </span>
                           <span className="text-red-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">L:</span>
-                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "N/A"}
+                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A"}
                           </span>
                         </div>
                       </div>
@@ -488,7 +488,7 @@ export function UploadArea() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
                       <p className="text-xs font-medium">🎯 Entrada</p>
-                      <p className="text-sm font-bold">{analysisResult.entrada ? `$${Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
+                      <p className="text-sm font-bold">{analysisResult.entrada ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
                     </div>
                     {/* TP Container Loop */}
                     <div className="flex flex-col gap-1">
@@ -496,13 +496,13 @@ export function UploadArea() {
                         <p className="text-[10px] font-medium">TP 1</p>
                         <p className="text-xs font-bold">
                           {analysisResult.entrada && analysisResult.salida
-                            ? `$${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                            ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : "N/A"}
                         </p>
                       </div>
                       <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 2</p>
-                        <p className="text-xs font-bold">{analysisResult.salida ? `$${Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
+                        <p className="text-xs font-bold">{analysisResult.salida ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
                       </div>
                     </div>
                   </div>
@@ -510,7 +510,7 @@ export function UploadArea() {
                   {/* Stop Loss */}
                   <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
                     <p className="text-xs font-medium">🛑 Stop Loss</p>
-                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `$${Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
+                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
                   </div>
 
                   {/* Indicadores clave */}

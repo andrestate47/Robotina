@@ -1,3 +1,6 @@
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance();
 
 // Definición de la interfaz para los datos de mercado
 export interface MarketData {
@@ -69,6 +72,7 @@ async function fetchCryptoData(symbol: string): Promise<MarketData | null> {
         if (!searchRes.ok) return null;
 
         const searchData = await searchRes.json();
+        const cleanSym = cleanSymbol(symbol); // Helper function usage
         // Buscamos coincidencia exacta o el primero
         const coin = searchData.coins?.find((c: any) => c.symbol === symbol.toUpperCase()) || searchData.coins?.[0];
 
@@ -86,7 +90,7 @@ async function fetchCryptoData(symbol: string): Promise<MarketData | null> {
         if (!data) return null;
 
         return {
-            symbol: cleanSymbol(symbol),
+            symbol: cleanSym,
             price: data.usd,
             change24h: data.usd_24h_change,
             volume24h: data.usd_24h_vol,
@@ -100,46 +104,55 @@ async function fetchCryptoData(symbol: string): Promise<MarketData | null> {
 }
 
 function getMockMarketData(symbol: string): MarketData {
-    const basePrice = Math.random() * 1000 + 100;
+    // Detección básica de Forex para dar precios realistas en Mock
+    const isForex = symbol.length === 6 && !symbol.includes("-") && !symbol.includes("=");
+    const isCrypto = ["BTC", "ETH", "SOL"].includes(symbol);
+
+    let basePrice = Math.random() * 1000 + 100;
+
+    if (isForex) {
+        // Generar precio realista para Forex (ej. 1.05 - 1.15)
+        basePrice = 1.05 + Math.random() * 0.1;
+    } else if (isCrypto) {
+        // Precio crypto genérico alto
+        basePrice = 30000 + Math.random() * 5000;
+    }
+
     return {
         symbol: cleanSymbol(symbol),
-        price: parseFloat(basePrice.toFixed(2)),
+        price: parseFloat(basePrice.toFixed(isForex ? 4 : 2)),
         change24h: parseFloat((Math.random() * 10 - 5).toFixed(2)),
         volume24h: Math.floor(Math.random() * 10000000),
-        high24h: parseFloat((basePrice * 1.05).toFixed(2)),
-        low24h: parseFloat((basePrice * 0.95).toFixed(2)),
+        high24h: parseFloat((basePrice * 1.05).toFixed(isForex ? 4 : 2)),
+        low24h: parseFloat((basePrice * 0.95).toFixed(isForex ? 4 : 2)),
         lastUpdated: new Date().toISOString(),
-        source: "Mock"
+        source: "Mock" // Claramente identificado como Mock
     };
 }
 
+
 async function fetchStockData(symbol: string): Promise<MarketData | null> {
     try {
-        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`);
-        if (!res.ok) return null;
+        const quote: any = await yahooFinance.quote(symbol);
 
-        const data = await res.json();
-        const result = data?.chart?.result?.[0];
-        const meta = result?.meta;
+        if (!quote) return null;
 
-        if (!meta) return null;
-
-        const price = meta.regularMarketPrice;
-        const prevClose = meta.previousClose;
-        const change = ((price - prevClose) / prevClose) * 100;
+        const price = quote.regularMarketPrice || quote.ask || quote.bid || 0;
+        const prevClose = quote.regularMarketPreviousClose || price;
+        const change = quote.regularMarketChangePercent || ((price - prevClose) / prevClose) * 100;
 
         return {
-            symbol: meta.symbol || symbol,
+            symbol: quote.symbol || symbol,
             price: price,
-            change24h: parseFloat(change.toFixed(2)),
-            volume24h: meta.regularMarketVolume || 0,
-            high24h: meta.regularMarketDayHigh || price,
-            low24h: meta.regularMarketDayLow || price,
+            change24h: parseFloat(change ? change.toFixed(2) : "0"),
+            volume24h: quote.regularMarketVolume || 0,
+            high24h: quote.regularMarketDayHigh || price,
+            low24h: quote.regularMarketDayLow || price,
             lastUpdated: new Date().toISOString(),
             source: "Yahoo Finance"
         };
     } catch (e) {
-        console.error("Error Yahoo Finance:", e);
+        console.error(`❌ Error Yahoo Finance (${symbol}):`, e);
         return null;
     }
 }
