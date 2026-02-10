@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Identify the financial asset symbol/ticker in this chart (e.g., BTC, AAPL, EURUSD, TSLA). Return ONLY the symbol text. If unsure or generic, return 'UNKNOWN'." },
+                  { type: "text", text: "Identify the financial asset symbol/ticker in this chart. For Forex/Currencies, return the 6-letter pair (e.g., EURUSD, GBPJPY). For Crypto, return the ticker (e.g., BTC, ETH). For Stocks, return the ticker (e.g., AAPL). Return ONLY the symbol text. If unsure or generic, return 'UNKNOWN'." },
                   { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
                 ],
               },
@@ -106,11 +106,14 @@ ESTILO DE TRADING ELEGIDO: ${tradingStyle ? tradingStyle.toUpperCase() : "INTRAD
 
 2. COMPARA fechas/precios: Si el precio en la imagen es muy distinto al "Precio Actual" provisto arriba, ADVIERTE que el gráfico podría ser antiguo.
 3. VALIDA la tendencia: Si el gráfico parece alcista pero el "Cambio 24h" es muy negativo, recomienda precaución extra.
-3. VALIDACIÓN LÓGICA OBLIGATORIA (Anti-Confusión):
-   - El usuario quiere ACCIÓN INMEDIATA o CERCANA.
-   - Si es LONG o NEUTRO: La Salida (TP) *SIEMPRE* debe ser MAYOR al "Precio Actual" (Breakout o continuación). NUNCA des un TP menor al precio actual.
-   - Si es SHORT: La Salida (TP) *SIEMPRE* debe ser MENOR al "Precio Actual".
-   - La "Entrada" debe estar cerca del precio actual (máximo 0.5% de diferencia) para que el plan sea ejecutable YA, salvo que sea Swing.
+3. VALIDACIÓN LÓGICA Y PRECISIÓN (Anti-Confusión):
+   - **PRECISIÓN DECIMAL PROHIBIDA DE REDONDEAR:** Para Forex (EURUSD, GBPUSD...) USA SIEMPRE 4 o 5 DECIMALES (ej. 1.08234, NO 1.08). Para Crypto usa 2 (BTC) o hasta 8 (SHIB).
+   - **Manejo de Discrepancias:**
+     - Si el precio de la imagen (ej: 1.1904) difiere del "Precio Actual" (ej: 1.0820) por más del 1%:
+       "¡ADVERTENCIA! El gráfico parece antiguo o de otro broker."
+       -> TU ANÁLISIS debe basarse en la ESTRUCTURA visual del gráfico (patrones), PERO...
+       -> LOS NIVELES DE ENTRADA/SALIDA deben recalcularse usando el PRECIO ACTUAL como referencia (Pivot Point).
+     - Si la diferencia es pequeña (<1%): Asume que es el mismo precio y ajusta tus niveles técnicos al PRECIO REAL para máxima precisión.
 
 4. Lee niveles clave: Soporte, resistencia, canales.
 

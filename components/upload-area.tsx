@@ -193,15 +193,15 @@ export function UploadArea() {
 
         {/* Input de Símbolo (Nuevo) */}
         {!analysisResult && (
-          <div className="mb-6 max-w-sm mx-auto">
-            <Label htmlFor="symbol" className="text-white mb-2 block font-medium">
+          <div className="mb-3 max-w-[220px] mx-auto">
+            <Label htmlFor="symbol" className="text-white mb-1.5 block font-medium text-xs">
               Activo / Símbolo (Opcional)
             </Label>
             <div className="relative">
-              <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Coins className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
                 id="symbol"
-                placeholder="Ej. BTC, AAPL, EURUSD"
+                placeholder="Ej. BTC, AAPL"
                 value={symbol}
                 onChange={(e) => {
                   setSymbol(e.target.value)
@@ -209,7 +209,7 @@ export function UploadArea() {
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                className="pl-9 bg-background/50 border-white/20 text-white placeholder:text-white/40 focus:border-primary"
+                className="pl-8 h-8 text-xs bg-background/50 border-white/20 text-white placeholder:text-white/40 focus:border-primary"
                 autoComplete="off"
               />
 
@@ -228,26 +228,26 @@ export function UploadArea() {
                     ).map((asset) => (
                       <div
                         key={asset.symbol}
-                        className="px-4 py-2 hover:bg-primary/20 cursor-pointer flex items-center justify-between text-sm transition-colors"
+                        className="px-3 py-1.5 hover:bg-primary/20 cursor-pointer flex items-center justify-between text-xs transition-colors"
                         onPointerDown={() => {
                           setSymbol(asset.symbol)
                           setShowSuggestions(false)
                         }}
                       >
                         <span className="font-bold text-white">{asset.symbol}</span>
-                        <span className="text-white/50 text-xs">{asset.name}</span>
+                        <span className="text-white/50 text-[10px]">{asset.name}</span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-2 text-xs text-white/30 text-center">
+                    <div className="px-3 py-1.5 text-[10px] text-white/30 text-center">
                       Sin coincidencias
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <p className="text-[10px] text-white/60 mt-1.5 ml-1 mb-4">
-              Ayuda a la IA a buscar precios precisos en tiempo real.
+            <p className="text-[9px] text-white/60 mt-1 ml-0.5 mb-2 leading-tight">
+              Ayuda a la IA a buscar precios precisos.
             </p>
 
             {/* Selector de Estilo de Trading */}
@@ -397,7 +397,7 @@ export function UploadArea() {
                             {analysisResult.datos_mercado.symbol}
                           </p>
                           <p className="text-lg font-bold text-white leading-none">
-                            ${analysisResult.datos_mercado.price.toLocaleString()}
+                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                           </p>
                         </div>
                       </div>
@@ -406,11 +406,11 @@ export function UploadArea() {
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-green-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">H:</span>
-                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString() : "N/A"}
+                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "N/A"}
                           </span>
                           <span className="text-red-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">L:</span>
-                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString() : "N/A"}
+                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "N/A"}
                           </span>
                         </div>
                       </div>
@@ -488,7 +488,7 @@ export function UploadArea() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
                       <p className="text-xs font-medium">🎯 Entrada</p>
-                      <p className="text-sm font-bold">{analysisResult.entrada ? `$${analysisResult.entrada}` : "N/A"}</p>
+                      <p className="text-sm font-bold">{analysisResult.entrada ? `$${Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
                     </div>
                     {/* TP Container Loop */}
                     <div className="flex flex-col gap-1">
@@ -496,13 +496,13 @@ export function UploadArea() {
                         <p className="text-[10px] font-medium">TP 1</p>
                         <p className="text-xs font-bold">
                           {analysisResult.entrada && analysisResult.salida
-                            ? `$${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toFixed(2)}`
+                            ? `$${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                             : "N/A"}
                         </p>
                       </div>
                       <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 2</p>
-                        <p className="text-xs font-bold">{analysisResult.salida ? `$${analysisResult.salida}` : "N/A"}</p>
+                        <p className="text-xs font-bold">{analysisResult.salida ? `$${Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
                       </div>
                     </div>
                   </div>
@@ -510,7 +510,7 @@ export function UploadArea() {
                   {/* Stop Loss */}
                   <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
                     <p className="text-xs font-medium">🛑 Stop Loss</p>
-                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `$${analysisResult.stop_loss}` : "N/A"}</p>
+                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `$${Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : "N/A"}</p>
                   </div>
 
                   {/* Indicadores clave */}

@@ -18,13 +18,23 @@ export interface MarketData {
  * Para Stocks/Forex, usa datos simulados (Mock) ya que requieren API Keys.
  */
 export async function getMarketData(symbol: string): Promise<MarketData | null> {
-    const cleanSymbol = symbol.toUpperCase().trim();
+    // Limpieza inicial: Quitar barras comunes en forex (EUR/USD -> EURUSD)
+    let cleanSymbol = symbol.toUpperCase().trim().replace("/", "");
     if (!cleanSymbol) return null;
 
-    // Ajuste para Yahoo Finance: Si parece cripto (sin guion) y tiene 3-4 letras, prueba agregar -USD
+    // Ajuste para Yahoo Finance
     let yahooSymbol = cleanSymbol;
+
+    // 1. Criptos conocidas (BTC -> BTC-USD)
     if (!cleanSymbol.includes("-") && !cleanSymbol.includes("=") && ["BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "DOT", "LTC", "AVAX", "LINK"].includes(cleanSymbol)) {
         yahooSymbol = `${cleanSymbol}-USD`;
+    }
+    // 2. Forex (Pares de 6 letras -> EURUSD=X)
+    // Yahoo usa el sufijo =X para tipos de cambio
+    else if (cleanSymbol.length === 6 && !cleanSymbol.includes("=") && !cleanSymbol.includes("-")) {
+        // Asumimos que si tiene 6 letras y son letras, podría ser forex.
+        // Ej: EURUSD, GBPJPY, USDMXN
+        yahooSymbol = `${cleanSymbol}=X`;
     }
 
     console.log(`📡 Buscando datos de mercado para: ${cleanSymbol} (Yahoo: ${yahooSymbol})...`);
