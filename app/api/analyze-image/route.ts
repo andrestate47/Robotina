@@ -29,12 +29,12 @@ export async function POST(req: NextRequest) {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Identify the financial asset symbol/ticker in this chart. For Forex/Currencies, return the 6-letter pair (e.g., EURUSD, GBPJPY). For Crypto, return the ticker (e.g., BTC, ETH). For Stocks, return the ticker (e.g., AAPL). Return ONLY the symbol text. If unsure or generic, return 'UNKNOWN'." },
+                  { type: "text", text: "Look at the text in the chart. Identify the financial asset. Return ONLY the standard Ticker Symbol.\n\nExamples:\n- If you see 'Nasdaq 100', 'US100', 'US Tech 100' -> Return 'NDX'\n- If you see 'Gold', 'XAU' -> Return 'GC=F'\n- If you see 'EURUSD', 'Euro' -> Return 'EURUSD'\n- If you see 'Bitcoin', 'BTC' -> Return 'BTC-USD'\n- If you see 'S&P 500', 'SPX' -> Return 'SPX'\n\nIf the image contains no clear text, infer from the context if possible, otherwise return 'UNKNOWN'. Return JUST the string." },
                   { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
                 ],
               },
             ],
-            max_tokens: 10,
+            max_tokens: 20,
           }),
         })
         const detectionResult = await detectionResponse.json()
@@ -60,19 +60,13 @@ export async function POST(req: NextRequest) {
 
       if (marketData) {
         marketInfoText = `
-DATA DE MERCADO REAL (${marketData.source}) - Prioridad MÁXIMA:
+DATA DE MERCADO REAL (${marketData.source}) - REFERENCIA:
 - Activo: ${marketData.symbol}
 - Precio Actual: $${marketData.price}
 - Cambio 24h: ${marketData.change24h}%
 - Volumen: ${marketData.volume24h}
 
-INSTRUCCIÓN CRÍTICA DE RESPUESTA:
-1. NUNCA devuelvas "null" en entrada/salida/stop_loss. SIEMPRE calcula valores hipotéticos o niveles de referencia (Soporte/Resistencia).
-2. Si el análisis es "NEUTRO", usa el Soporte más cercano como "entrada" (compra ideal) y la Resistencia como "salida".
-3. Si el gráfico es ANTIGUO (precio diferente al real): IGNORA el precio de la imagen. Crea un plan de trading basado en el PRECIO REAL suministrado ("Precio Actual").
-4. Sé valiente: Prefiere dar un plan "LONG" o "SHORT" basado en la tendencia macro del precio real antes que un "NEUTRO" vacío.
-
-Estructura JSON requerida (campos numéricos OBLIGATORIOS):
+Usa estos datos como contexto adicional para validar tu análisis gráfico.
 `
       }
     }
@@ -87,71 +81,43 @@ Estructura JSON requerida (campos numéricos OBLIGATORIOS):
       },
       body: JSON.stringify({
         model: "gpt-4o-2024-08-06",
+        response_format: { type: "json_object" }, // Forzar JSON estricto
         messages: [
+          {
+            role: "system",
+            content: "Eres un asistente experto en análisis técnico de gráficos financieros. Tu tarea es extraer información visual y proporcionar niveles técnicos de referencia basados puramente en la acción del precio observada. Responde siempre en formato JSON válido."
+          },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analiza cuidadosamente la imagen adjunta. Es un gráfico financiero (análisis técnico).
+                text: `Analiza la imagen adjunta. Identifica patrones técnicos y niveles clave.
+
 ${marketInfoText}
 
-Tu misión es combinar el ANÁLISIS VISUAL con los DATOS EN TIEMPO REAL:
+INSTRUCCIONES CLAVE:
+1. Valida si el gráfico corresponde al activo identificado (${activeSymbol || "Desconocido"}).
+2. Identifica la Tendencia Principal (Alcista, Bajista, Lateral) basándote en la acción del precio.
+3. Localiza Soportes y Resistencias visibles.
 
-ESTILO DE TRADING ELEGIDO: ${tradingStyle ? tradingStyle.toUpperCase() : "INTRADAY"}
-1. Ajusta los TPs y SL según el estilo:
-   - SCALPING: Busca movimientos rápidos (15m - 1h). SL muy ajustado, TPs cortos.
-   - INTRADAY: Busca movimientos de la sesión (4h - 1D). SL moderado.
-   - SWING: Busca tendencias de días/semanas. SL amplio, TPs lejanos esperando grandes recorridos.
-
-2. COMPARA fechas/precios: Si el precio en la imagen es muy distinto al "Precio Actual" provisto arriba, ADVIERTE que el gráfico podría ser antiguo.
-3. VALIDA la tendencia: Si el gráfico parece alcista pero el "Cambio 24h" es muy negativo, recomienda precaución extra.
-3. VALIDACIÓN LÓGICA Y PRECISIÓN (Anti-Confusión):
-   - **PRECISIÓN DECIMAL PROHIBIDA DE REDONDEAR:** Para Forex (EURUSD, GBPUSD...) USA SIEMPRE 4 o 5 DECIMALES (ej. 1.08234, NO 1.08). Para Crypto usa 2 (BTC) o hasta 8 (SHIB).
-   - **Manejo de Discrepancias:**
-     - Si el precio de la imagen (ej: 1.1904) difiere del "Precio Actual" (ej: 1.0820) por más del 1%:
-       "¡ADVERTENCIA! El gráfico parece antiguo o de otro broker."
-       -> TU ANÁLISIS debe basarse en la ESTRUCTURA visual del gráfico (patrones), PERO...
-       -> LOS NIVELES DE ENTRADA/SALIDA deben recalcularse usando el PRECIO ACTUAL como referencia (Pivot Point).
-     - Si la diferencia es pequeña (<1%): Asume que es el mismo precio y ajusta tus niveles técnicos al PRECIO REAL para máxima precisión.
-
-4. Lee niveles clave: Soporte, resistencia, canales.
-
-Genera un recomendación técnica en formato JSON con esta estructura exacta:
-
+FORMATO JSON REQUERIDO:
 {
   "tipo_analisis": "LONG" | "SHORT" | "NEUTRO",
-  "entrada": 0.0,
-  "salida": 0.0,
-  "stop_loss": 0.0,
+  "entrada": number (precio de entrada ideal basado en soporte/resistencia),
+  "salida": number (objetivo técnico),
+  "stop_loss": number (nivel de invalidación),
   "confianza": "Alta" | "Media" | "Baja",
-  "patron_detectado": "Nombre del patrón",
-  "indicadores_clave": ["RSI", "MACD", "EMA", "Volumen", "Divergencia", ...],
-  "comentario": "Análisis crítico. DEBES mencionar explícitamente si el precio real confirma o contradice el gráfico. Justifica la entrada."
+  "patron_detectado": string (ej. "Doble Suelo", "Tendencia Alcista", "Canal Lateral"),
+  "indicadores_clave": string[] (ej. ["RSI sobreventa", "Volumen creciente"]),
+  "comentario": string (Breve explicación del análisis técnico)
 }
 
-Sé extremadamente preciso con los niveles numéricos (entrada, salida, stop loss) y coherente con la dirección de la tendencia.
-
-No inventes valores NUMÉRICOS (entrada, salida) si no se pueden estimar; usa null.
-
-PERO los campos de TEXTO (patron_detectado, comentario, confianza) SIEMPRE deben tener contenido. Si no hay patrón claro, pon "Indefinido" o "Consolidación".
-
-Usa tono profesional, analítico y breve.
-
-IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON, sin texto antes ni después.
-
-Ejemplo de salida esperada:
-
-{
-  "tipo_analisis": "LONG",
-  "entrada": 112.13,
-  "salida": 116.09,
-  "stop_loss": 111.40,
-  "confianza": "Alta",
-  "patron_detectado": "Tendencia alcista con soporte en EMA 50",
-  "indicadores_clave": ["Volumen alto", "RSI > 60", "EMA 20 ascendente"],
-  "comentario": "El gráfico muestra impulso alcista sostenido con volumen creciente. Se recomienda entrada moderada con gestión de riesgo ajustada."
-}`,
+Reglas:
+- Si el precio de la imagen difiere del real provisto, usa el REAL como base para los niveles.
+- Sé preciso con los números.
+- IMPORTANTE: Si es un rango lateral claro, marca "NEUTRO". Si hay una dirección probable, usa "LONG" o "SHORT".
+`
               },
               {
                 type: "image_url",

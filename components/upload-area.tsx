@@ -399,6 +399,9 @@ export function UploadArea() {
                           <p className="text-lg font-bold text-white leading-none">
                             ${analysisResult.datos_mercado.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
+                          <p className="text-[9px] text-white/40 mt-1">
+                            Actualizado: {new Date().toLocaleTimeString()}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-[100px]">
@@ -488,21 +491,44 @@ export function UploadArea() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
                       <p className="text-xs font-medium">🎯 Entrada</p>
-                      <p className="text-sm font-bold">{analysisResult.entrada ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
+                      <p className="text-sm font-bold flex items-baseline justify-center">
+                        {analysisResult.entrada ? (
+                          <>
+                            <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-blue-900/60 uppercase">
+                              {analysisResult.datos_mercado?.symbol || "$"}
+                            </span>
+                            {Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </>
+                        ) : "N/A"}
+                      </p>
                     </div>
                     {/* TP Container Loop */}
                     <div className="flex flex-col gap-1">
                       <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 1</p>
-                        <p className="text-xs font-bold">
-                          {analysisResult.entrada && analysisResult.salida
-                            ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : "N/A"}
+                        <p className="text-xs font-bold flex items-baseline">
+                          {analysisResult.entrada && analysisResult.salida ? (
+                            <>
+                              <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
+                                {analysisResult.datos_mercado?.symbol || "$"}
+                              </span>
+                              {(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </>
+                          ) : "N/A"}
                         </p>
                       </div>
                       <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
                         <p className="text-[10px] font-medium">TP 2</p>
-                        <p className="text-xs font-bold">{analysisResult.salida ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
+                        <p className="text-xs font-bold flex items-baseline">
+                          {analysisResult.salida ? (
+                            <>
+                              <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
+                                {analysisResult.datos_mercado?.symbol || "$"}
+                              </span>
+                              {Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </>
+                          ) : "N/A"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -510,7 +536,16 @@ export function UploadArea() {
                   {/* Stop Loss */}
                   <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
                     <p className="text-xs font-medium">🛑 Stop Loss</p>
-                    <p className="text-sm font-bold">{analysisResult.stop_loss ? `${analysisResult.datos_mercado?.symbol ? analysisResult.datos_mercado.symbol + " " : "$"}${Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}</p>
+                    <p className="text-sm font-bold flex items-baseline justify-center">
+                      {analysisResult.stop_loss ? (
+                        <>
+                          <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-red-900/60 uppercase">
+                            {analysisResult.datos_mercado?.symbol || "$"}
+                          </span>
+                          {Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </>
+                      ) : "N/A"}
+                    </p>
                   </div>
 
                   {/* Indicadores clave */}
