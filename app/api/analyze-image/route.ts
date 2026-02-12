@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Look at the text in the chart. Identify the financial asset. Return ONLY the standard Ticker Symbol.\n\nExamples:\n- If you see 'Nasdaq 100', 'US100', 'US Tech 100' -> Return 'NDX'\n- If you see 'Gold', 'XAU' -> Return 'GC=F'\n- If you see 'EURUSD', 'Euro' -> Return 'EURUSD'\n- If you see 'Bitcoin', 'BTC' -> Return 'BTC-USD'\n- If you see 'S&P 500', 'SPX' -> Return 'SPX'\n\nIf the image contains no clear text, infer from the context if possible, otherwise return 'UNKNOWN'. Return JUST the string." },
+                  { type: "text", text: "Look at the text in the chart image carefully. Identify the financial asset displayed. Your goal is to return the PRECISE Ticker Symbol used in financial markets (Yahoo Finance style pref).\n\nCRITICAL RULES:\n1. If you see a specific code in parentheses like 'S&P 500 Buyback (SPBUYUN)', RETURN 'SPBUYUN'. Do NOT generalize to 'SPX'.\n2. IF you see 'Nasdaq 100', return 'NDX'.\n3. If you see 'Gold' or 'XAU', return 'GC=F'.\n4. If you see 'Bitcoin', return 'BTC-USD'.\n5. If the image has a clear ticker like 'AAPL', 'TSLA', 'EURUSD', return it exactly.\n\nReturn ONLY the symbol string. No explanations." },
                   { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
                 ],
               },
@@ -96,27 +96,29 @@ Usa estos datos como contexto adicional para validar tu análisis gráfico.
 
 ${marketInfoText}
 
-INSTRUCCIONES CLAVE:
-1. Valida si el gráfico corresponde al activo identificado (${activeSymbol || "Desconocido"}).
-2. Identifica la Tendencia Principal (Alcista, Bajista, Lateral) basándote en la acción del precio.
-3. Localiza Soportes y Resistencias visibles.
+INSTRUCCIONES CLAVE DE PRECIO:
+1. Analiza el eje Y de la imagen. SI el precio en el gráfico es MUY diferente (>5%) del dato real provisto ($${marketData?.price}), IGNORA EL DATO REAL y usa los precios de la imagen (asume que es un gráfico histórico o backtest).
+2. SI los precios coinciden aproximadamente, usa el PRECIO REAL ($${marketData?.price}) como ancla de precisión.
+3. Si es LONG, la "entrada" debe ser el nivel lógico actual en la imagen.
+4. Si es SHORT, la "entrada" debe ser el nivel lógico actual en la imagen.
+5. Los objetivos (Salida) y Stop Loss deben ser coherentes con la escala VISUAL de la imagen.
 
 FORMATO JSON REQUERIDO:
 {
   "tipo_analisis": "LONG" | "SHORT" | "NEUTRO",
-  "entrada": number (precio de entrada ideal basado en soporte/resistencia),
-  "salida": number (objetivo técnico),
-  "stop_loss": number (nivel de invalidación),
+  "entrada": number (Precio de ejecución sugerido, cercano al precio real),
+  "salida": number (Objetivo técnico / Take Profit),
+  "stop_loss": number (Nivel de invalidación),
   "confianza": "Alta" | "Media" | "Baja",
-  "patron_detectado": string (ej. "Doble Suelo", "Tendencia Alcista", "Canal Lateral"),
-  "indicadores_clave": string[] (ej. ["RSI sobreventa", "Volumen creciente"]),
-  "comentario": string (Breve explicación del análisis técnico)
+  "patron_detectado": string (ej. "Doble Suelo", "Tendencia Alcista"),
+  "indicadores_clave": string[] (ej. ["RSI sobreventa", "Volumen alto"]),
+  "comentario": string (Explicación breve del setup)
 }
 
 Reglas:
-- Si el precio de la imagen difiere del real provisto, usa el REAL como base para los niveles.
-- Sé preciso con los números.
-- IMPORTANTE: Si es un rango lateral claro, marca "NEUTRO". Si hay una dirección probable, usa "LONG" o "SHORT".
+- Si no hay datos reales provistos, estima basado en la escala del eje Y de la imagen.
+- NO INVENTES PRECIOS LEJANOS AL ACTUAL si la imagen es reciente.
+- IMPORTANTE: Si es un rango lateral claro, marca "NEUTRO".
 `
               },
               {

@@ -397,7 +397,10 @@ export function UploadArea() {
                             {analysisResult.datos_mercado.symbol}
                           </p>
                           <p className="text-lg font-bold text-white leading-none">
-                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", {
+                              minimumFractionDigits: analysisResult.datos_mercado.price < 5 ? 4 : 2,
+                              maximumFractionDigits: analysisResult.datos_mercado.price < 5 ? 4 : 2
+                            })}
                           </p>
                           <p className="text-[9px] text-white/40 mt-1">
                             Actualizado: {new Date().toLocaleTimeString()}
@@ -409,11 +412,21 @@ export function UploadArea() {
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-green-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">H:</span>
-                            {analysisResult.datos_mercado.high24h ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A"}
+                            {analysisResult.datos_mercado.high24h
+                              ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", {
+                                minimumFractionDigits: analysisResult.datos_mercado.high24h < 5 ? 4 : 2,
+                                maximumFractionDigits: analysisResult.datos_mercado.high24h < 5 ? 4 : 2
+                              })
+                              : "N/A"}
                           </span>
                           <span className="text-red-400 text-xs flex items-center gap-1">
                             <span className="text-[9px] opacity-70">L:</span>
-                            {analysisResult.datos_mercado.low24h ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A"}
+                            {analysisResult.datos_mercado.low24h
+                              ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", {
+                                minimumFractionDigits: analysisResult.datos_mercado.low24h < 5 ? 4 : 2,
+                                maximumFractionDigits: analysisResult.datos_mercado.low24h < 5 ? 4 : 2
+                              })
+                              : "N/A"}
                           </span>
                         </div>
                       </div>
@@ -497,7 +510,10 @@ export function UploadArea() {
                             <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-blue-900/60 uppercase">
                               {analysisResult.datos_mercado?.symbol || "$"}
                             </span>
-                            {Number(analysisResult.entrada).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {Number(analysisResult.entrada).toLocaleString("en-US", {
+                              minimumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2,
+                              maximumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2
+                            })}
                           </>
                         ) : "N/A"}
                       </p>
@@ -512,7 +528,10 @@ export function UploadArea() {
                               <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
                                 {analysisResult.datos_mercado?.symbol || "$"}
                               </span>
-                              {(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {((Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2)).toLocaleString("en-US", {
+                                minimumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2,
+                                maximumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2
+                              })}
                             </>
                           ) : "N/A"}
                         </p>
@@ -525,7 +544,10 @@ export function UploadArea() {
                               <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
                                 {analysisResult.datos_mercado?.symbol || "$"}
                               </span>
-                              {Number(analysisResult.salida).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {Number(analysisResult.salida).toLocaleString("en-US", {
+                                minimumFractionDigits: Number(analysisResult.salida) < 5 ? 4 : 2,
+                                maximumFractionDigits: Number(analysisResult.salida) < 5 ? 4 : 2
+                              })}
                             </>
                           ) : "N/A"}
                         </p>
@@ -542,7 +564,10 @@ export function UploadArea() {
                           <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-red-900/60 uppercase">
                             {analysisResult.datos_mercado?.symbol || "$"}
                           </span>
-                          {Number(analysisResult.stop_loss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {Number(analysisResult.stop_loss).toLocaleString("en-US", {
+                            minimumFractionDigits: Number(analysisResult.stop_loss) < 5 ? 4 : 2,
+                            maximumFractionDigits: Number(analysisResult.stop_loss) < 5 ? 4 : 2
+                          })}
                         </>
                       ) : "N/A"}
                     </p>

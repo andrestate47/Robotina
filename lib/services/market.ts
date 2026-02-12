@@ -11,67 +11,159 @@ export interface MarketData {
     high24h?: number;
     low24h?: number;
     lastUpdated: string;
-    source: "Polygon" | "CoinGecko" | "Yahoo Finance" | "Mock" | "Error";
+    source: "Polygon" | "CoinGecko" | "Yahoo Finance" | "Mock" | "Error" | "Binance";
 }
 
+/**
+ * Servicio para obtener datos de mercado.
+ * Estrategia de "Alta Precisión Híbrida":
+ * - Crypto: Binance (Tiempo Real puro) -> Polygon -> CoinGecko
+ * - Stocks/Forex/Indices: Yahoo Finance (Intraday/Live aprox) -> Polygon (Cierre Anterior confiable)
+ */
 export async function getMarketData(symbol: string): Promise<MarketData | null> {
     const cleanSymbol = symbol.toUpperCase().trim();
     if (!cleanSymbol) return null;
 
-    console.log(`📡 Buscando datos de mercado para: ${cleanSymbol} (Prioridad: Polygon)...`);
+    console.log(`📡 Buscando datos de mercado para: ${cleanSymbol}...`);
 
-    // 1. Polygon.io (Direct Fetch)
-    try {
-        const polygonData = await fetchPolygonData(cleanSymbol);
-        if (polygonData) return polygonData;
-    } catch (e) {
-        console.error("❌ Polygon error:", e);
+    const isCrypto = ["BTC", "ETH", "SOL", "XRP", "ADA", "BNB", "DOGE", "LTC"].includes(cleanSymbol) || cleanSymbol.includes("-USD") || cleanSymbol.includes("USDT");
+
+    // --- ESTRATEGIA CRYPTO (Prioridad Velocidad/Real-time) ---
+    if (isCrypto) {
+        // 1. Binance (El más rápido y preciso)
+        try {
+            const binanceData = await fetchBinanceData(cleanSymbol);
+            if (binanceData) return binanceData;
+        } catch (e) {
+            console.error("❌ Binance error:", e);
+        }
+
+        // 2. Polygon (Muy bueno también)
+        try {
+            const polygonData = await fetchPolygonData(cleanSymbol);
+            if (polygonData) return polygonData;
+        } catch (e) { console.error("❌ Polygon Crypto error:", e); }
     }
 
-    // 2. Yahoo Finance (Fallback)
-    try {
-        let yahooSymbol = cleanSymbol;
-        if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
-        else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
-        else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
-        else if (cleanSymbol === "BTC") yahooSymbol = "BTC-USD";
+    // --- ESTRATEGIA STOCKS / FOREX / INDICES (Prioridad Datos Recientes) ---
+    else {
+        // 1. Yahoo Finance (Suele dar datos Intraday 'en vivo' o con menos delay que el Previous Close de Polygon Free)
+        try {
+            let yahooSymbol = cleanSymbol;
+            if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
+            else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
+            else if (cleanSymbol === "DJI") yahooSymbol = "^DJI";
+            else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
 
-        console.log(`📡 Buscando datos en Yahoo (fallback) para: ${yahooSymbol}...`);
-        const stockData = await fetchStockData(yahooSymbol);
-        if (stockData) return stockData;
-    } catch (e) {
-        console.error("❌ Yahoo Finance error (Fallback):", e);
+            console.log(`📡 Intentando Yahoo (Intraday) para: ${yahooSymbol}...`);
+            const stockData = await fetchStockData(yahooSymbol);
+            if (stockData) return stockData;
+        } catch (e) {
+            console.error("❌ Yahoo Finance error:", e);
+        }
+
+        // 2. Polygon (Cierre Anterior - Muy estable pero puede ser de ayer)
+        try {
+            console.log(`📡 Intentando Polygon (Backup) para: ${cleanSymbol}...`);
+            const polygonData = await fetchPolygonData(cleanSymbol);
+            if (polygonData) return polygonData;
+        } catch (e) {
+            console.error("❌ Polygon Stocks error:", e);
+        }
     }
 
-    // 3. CoinGecko (Crypto Fallback)
-    try {
-        const cryptoData = await fetchCryptoData(cleanSymbol);
-        if (cryptoData) return cryptoData;
-    } catch (error) {
-        console.error("❌ Error fetching crypto data:", error);
+    // --- FALLBACKS FINALES ---
+
+    // CoinGecko (Solo Crypto - Lento pero seguro)
+    if (isCrypto) {
+        try {
+            const cryptoData = await fetchCryptoData(cleanSymbol);
+            if (cryptoData) return cryptoData;
+        } catch (error) { console.error("❌ CoinGecko error:", error); }
     }
 
-    // 4. Mock
+    // Mock (Último recurso)
     console.warn(`⚠️ No se encontró datos reales, usando MOCK para ${cleanSymbol}`);
     return getMockMarketData(cleanSymbol);
 }
 
+// 🚀 Nueva función: Binance Public API (Sin Key, Rate limit alto)
+async function fetchBinanceData(symbol: string): Promise<MarketData | null> {
+    let pair = symbol.replace("-USD", "USDT").replace("/USD", "USDT");
+    if (!pair.endsWith("USDT") && !pair.endsWith("BUSD")) pair += "USDT"; // Asumir USDT default
+
+    // Mapeos manuales para evitar errores
+    if (symbol === "BTC") pair = "BTCUSDT";
+    if (symbol === "ETH") pair = "ETHUSDT";
+
+    try {
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`);
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        const price = parseFloat(data.lastPrice);
+
+        console.log(`✅ Binance data found for ${pair}: ${price}`);
+
+        return {
+            symbol: prettifySymbol(symbol),
+            price: price,
+            change24h: parseFloat(parseFloat(data.priceChangePercent).toFixed(2)),
+            volume24h: parseFloat(data.quoteVolume),
+            high24h: parseFloat(data.highPrice),
+            low24h: parseFloat(data.lowPrice),
+            lastUpdated: new Date().toISOString(),
+            source: "Binance"
+        };
+    } catch (e) {
+        return null; // Silencioso, pasamos al siguiente
+    }
+}
+
+// 🌍 Nueva función: Frankfurter API (Excelente para Forex Oficial del BCE)
+async function fetchFrankfurterData(symbol: string): Promise<MarketData | null> {
+    const base = symbol.substring(0, 3);
+    const quote = symbol.substring(3, 6);
+
+    // Frankfurter: base EUR default. Endpoint: latest?from=USD&to=JPY
+    try {
+        const url = `https://api.frankfurter.app/latest?from=${base}&to=${quote}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        const price = data.rates[quote];
+
+        if (!price) return null;
+
+        console.log(`✅ Frankfurter data for ${symbol}: ${price}`);
+
+        return {
+            symbol: prettifySymbol(`${base}/${quote}`),
+            price: price,
+            change24h: 0,
+            volume24h: 0,
+            lastUpdated: new Date().toISOString(),
+            source: "Yahoo Finance"
+        };
+    } catch (e) {
+        return null; // Silencioso
+    }
+}
+
 async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     const apiKey = process.env.POLYGON_API_KEY;
-    if (!apiKey) {
-        console.error("❌ Missing POLYGON_API_KEY");
-        return null;
-    }
+    if (!apiKey) return null;
 
     let ticker = symbol;
     // Mapping logic
-    if (["NDX", "NASDAQ", "NASDAQ100", "US100"].includes(symbol)) ticker = "I:NDX";
-    else if (["SPX", "SP500", "US500"].includes(symbol)) ticker = "I:SPX";
-    else if (["DJI", "DOW", "US30"].includes(symbol)) ticker = "I:DJI";
-    else if (symbol.length === 6 && !symbol.includes("-")) {
+    if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(symbol)) ticker = "I:NDX";
+    else if (["SPX", "SP500", "US500", "S&P 500"].includes(symbol)) ticker = "I:SPX";
+    else if (["DJI", "DOW", "US30", "US 30"].includes(symbol)) ticker = "I:DJI";
+    else if (symbol.length === 6 && !symbol.includes("-") && !symbol.includes("/")) {
         ticker = `C:${symbol}`;
     } else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(symbol) || symbol.includes("-USD")) {
-        const coreSym = symbol.replace("-USD", "");
+        const coreSym = symbol.replace("-USD", "").replace("/USD", "");
         ticker = `X:${coreSym}USD`;
     }
 
@@ -81,18 +173,11 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     const fetchPreviousClose = async (t: string) => {
         const url = `https://api.polygon.io/v2/aggs/ticker/${t}/prev?adjusted=true&apiKey=${apiKey}`;
         const res = await fetch(url);
-        if (!res.ok) {
-            console.warn(`⚠️ Polygon Fetch Failed (${t}): ${res.status} ${res.statusText}`);
-            return null;
-        }
+        if (!res.ok) return null;
         return res.json();
     };
 
     let data = await fetchPreviousClose(ticker);
-
-    // Si Polygon falla para Indices (común en plan gratuito), retornamos null
-    // para que el sistema haga fallback a Yahoo Finance y muestre el precio real del indice (^NDX)
-    // en lugar de un ETF proxy (QQQ).
 
     if (data && data.results && data.results.length > 0) {
         const result = data.results[0];
