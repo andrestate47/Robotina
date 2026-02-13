@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Look at the text in the chart image carefully. Identify the financial asset displayed. Your goal is to return the PRECISE Ticker Symbol used in financial markets (Yahoo Finance style pref).\n\nCRITICAL RULES:\n1. If you see a specific code in parentheses like 'S&P 500 Buyback (SPBUYUN)', RETURN 'SPBUYUN'. Do NOT generalize to 'SPX'.\n2. IF you see 'Nasdaq 100', return 'NDX'.\n3. If you see 'Gold' or 'XAU', return 'GC=F'.\n4. If you see 'Bitcoin', return 'BTC-USD'.\n5. If the image has a clear ticker like 'AAPL', 'TSLA', 'EURUSD', return it exactly.\n\nReturn ONLY the symbol string. No explanations." },
+                  { type: "text", text: "Look at the text in the chart image carefully. Identify the financial asset displayed. Your goal is to return the PRECISE Ticker Symbol used in financial markets (Yahoo Finance style pref).\n\nCRITICAL RULES:\n1. If you see specific text like 'S&P 500 Pure Growth', return '^SP500PG' (or appropriate ETF like 'RPG').\n2. If you see a code in parentheses like '(SPBUYUN)', RETURN 'SPBUYUN'.\n3. DO NOT generalize specialized S&P indices to just 'SPX'.\n4. 'Nasdaq 100' -> 'NDX'. 'Gold' -> 'GC=F'. 'Bitcoin' -> 'BTC-USD'.\n5. If the image has a clear ticker like 'AAPL', 'TSLA', 'EURUSD', return it exactly.\n\nReturn ONLY the symbol string. No explanations." },
                   { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
                 ],
               },

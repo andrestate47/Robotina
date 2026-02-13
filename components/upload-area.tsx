@@ -175,6 +175,17 @@ export function UploadArea() {
 
   const handleSelectClick = () => fileInputRef.current?.click()
 
+  // ⚡ Teclado: ENTER para analizar
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && uploadedImage && !isAnalyzing) {
+        handleAnalyze()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [uploadedImage, isAnalyzing, handleAnalyze])
+
   return (
     <div className="max-w-4xl mx-auto relative overflow-hidden rounded-2xl border border-border shadow-lg">
 
