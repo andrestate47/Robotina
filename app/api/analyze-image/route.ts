@@ -171,7 +171,39 @@ Reglas:
         Number(parsedJSON["salida"]) > Number(parsedJSON["entrada"]) ? "LONG" : "SHORT"
     }
 
-    // 🧬 Inyectar Market Data real en la respuesta final para mostrar en el frontend
+    // 🔍 Paso 3: Análisis y Validación Post-IA (El "Árbitro")
+    const { tipo_analisis, entrada, salida, stop_loss } = parsedJSON
+    let validationWarnings: string[] = []
+    let isHistorical = false
+
+    // 3.1 validación de Coherencia Matemática
+    if (tipo_analisis === "LONG") {
+      if (salida <= entrada) validationWarnings.push("Take Profit ilógico para un LONG (debe ser mayor a la entrada).")
+      if (stop_loss >= entrada) validationWarnings.push("Stop Loss ilógico para un LONG (debe ser menor a la entrada).")
+    } else if (tipo_analisis === "SHORT") {
+      if (salida >= entrada) validationWarnings.push("Take Profit ilógico para un SHORT (debe ser menor a la entrada).")
+      if (stop_loss <= entrada) validationWarnings.push("Stop Loss ilógico para un SHORT (debe ser mayor a la entrada).")
+    }
+
+    // 3.2 Validación de Realidad (Imagen vs Precio Real)
+    if (marketData && parsedJSON.entrada) {
+      const diffPercent = Math.abs((marketData.price - parsedJSON.entrada) / marketData.price) * 100
+      if (diffPercent > 5) {
+        isHistorical = true
+        console.log(`⚠️ Detectado gráfico histórico/diferente. Diferencia precio: ${diffPercent.toFixed(2)}%`)
+        validationWarnings.push(`El precio en la imagen ($${parsedJSON.entrada}) difiere significativamente del mercado actual ($${marketData.price}). Análisis tratado como HISTÓRICO.`)
+      }
+    }
+
+    // 3.3 Ajuste final de Confianza
+    if (validationWarnings.length > 0) {
+      parsedJSON["confianza"] = "Baja"
+      parsedJSON["comentario"] += "\n\n⚠️ NOTAS DEL SISTEMA: " + validationWarnings.join(" ")
+    }
+
+    // 🧬 Inyectar metadata enriquecida
+    parsedJSON["es_historico"] = isHistorical
+    parsedJSON["warnings"] = validationWarnings
     if (marketData) {
       parsedJSON["datos_mercado"] = marketData
     }

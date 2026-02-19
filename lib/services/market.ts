@@ -20,12 +20,32 @@ export interface MarketData {
  * - Crypto: Binance (Tiempo Real puro) -> Polygon -> CoinGecko
  * - Stocks/Forex/Indices: Yahoo Finance (Intraday/Live aprox) -> Polygon (Cierre Anterior confiable)
  */
+// 💾 CACHÉ EN MEMORIA (Simple y Efectiva)
+// Guarda los precios por 60 segundos para evitar saturar las APIs y mejorar la velocidad.
+const MARKET_CACHE = new Map<string, { data: MarketData, timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 60 segundos de vida para el dato
+
 export async function getMarketData(symbol: string): Promise<MarketData | null> {
     const cleanSymbol = symbol.toUpperCase().trim();
     if (!cleanSymbol) return null;
 
-    console.log(`📡 Buscando datos de mercado para: ${cleanSymbol}...`);
+    // 1. ⚡ REVISAR CACHÉ PRIMERO
+    const cached = MARKET_CACHE.get(cleanSymbol);
+    if (cached) {
+        const now = Date.now();
+        const age = now - cached.timestamp;
+        if (age < CACHE_TTL_MS) {
+            console.log(`� CACHÉ HIT para ${cleanSymbol} (Edad: ${Math.round(age / 1000)}s)`);
+            return cached.data;
+        } else {
+            console.log(`⌛ Caché expirado para ${cleanSymbol}. Actualizando...`);
+            MARKET_CACHE.delete(cleanSymbol);
+        }
+    }
 
+    console.log(`�📡 Buscando datos frescos de mercado para: ${cleanSymbol}...`);
+
+    let result: MarketData | null = null;
     const isCrypto = ["BTC", "ETH", "SOL", "XRP", "ADA", "BNB", "DOGE", "LTC"].includes(cleanSymbol) || cleanSymbol.includes("-USD") || cleanSymbol.includes("USDT");
 
     // --- ESTRATEGIA CRYPTO (Prioridad Velocidad/Real-time) ---
@@ -33,58 +53,81 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
         // 1. Binance (El más rápido y preciso)
         try {
             const binanceData = await fetchBinanceData(cleanSymbol);
-            if (binanceData) return binanceData;
+            if (binanceData) result = binanceData;
         } catch (e) {
             console.error("❌ Binance error:", e);
         }
 
-        // 2. Polygon (Muy bueno también)
-        try {
-            const polygonData = await fetchPolygonData(cleanSymbol);
-            if (polygonData) return polygonData;
-        } catch (e) { console.error("❌ Polygon Crypto error:", e); }
+        // 2. Polygon (Backup)
+        if (!result) {
+            try {
+                const polygonData = await fetchPolygonData(cleanSymbol);
+                if (polygonData) result = polygonData;
+            } catch (e) { console.error("❌ Polygon Crypto error:", e); }
+        }
     }
 
     // --- ESTRATEGIA STOCKS / FOREX / INDICES (Prioridad Datos Recientes) ---
     else {
-        // 1. Yahoo Finance (Suele dar datos Intraday 'en vivo' o con menos delay que el Previous Close de Polygon Free)
+        // 1. Yahoo Finance (Intraday)
         try {
             let yahooSymbol = cleanSymbol;
             if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
             else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
             else if (cleanSymbol === "DJI") yahooSymbol = "^DJI";
             else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
+            else if (cleanSymbol === "GBPUSD") yahooSymbol = "GBPUSD=X";
+            else if (cleanSymbol === "USDJPY") yahooSymbol = "JPY=X";
+            // 🛢️ COMMODITIES (Oro, Plata, Petróleo)
+            else if (["XAU", "GOLD", "ORO", "XAUUSD"].includes(cleanSymbol)) yahooSymbol = "GC=F"; // Futuros Oro (Más data que spot)
+            else if (["XAG", "SILVER", "PLATA", "XAGUSD"].includes(cleanSymbol)) yahooSymbol = "SI=F"; // Futuros Plata
+            else if (["OIL", "WTI", "USOIL"].includes(cleanSymbol)) yahooSymbol = "CL=F"; // Crudo WTI
+            else if (["BRENT", "UKOIL"].includes(cleanSymbol)) yahooSymbol = "BZ=F"; // Crudo Brent
 
             console.log(`📡 Intentando Yahoo (Intraday) para: ${yahooSymbol}...`);
             const stockData = await fetchStockData(yahooSymbol);
-            if (stockData) return stockData;
+            if (stockData) result = stockData;
         } catch (e) {
             console.error("❌ Yahoo Finance error:", e);
         }
 
-        // 2. Polygon (Cierre Anterior - Muy estable pero puede ser de ayer)
-        try {
-            console.log(`📡 Intentando Polygon (Backup) para: ${cleanSymbol}...`);
-            const polygonData = await fetchPolygonData(cleanSymbol);
-            if (polygonData) return polygonData;
-        } catch (e) {
-            console.error("❌ Polygon Stocks error:", e);
+        // 2. Polygon (Backup - Cierre Anterior)
+        if (!result) {
+            try {
+                console.log(`📡 Intentando Polygon (Backup) para: ${cleanSymbol}...`);
+                const polygonData = await fetchPolygonData(cleanSymbol);
+                if (polygonData) result = polygonData;
+            } catch (e) {
+                console.error("❌ Polygon Stocks error:", e);
+            }
         }
     }
 
     // --- FALLBACKS FINALES ---
 
     // CoinGecko (Solo Crypto - Lento pero seguro)
-    if (isCrypto) {
+    if (!result && isCrypto) {
         try {
             const cryptoData = await fetchCryptoData(cleanSymbol);
-            if (cryptoData) return cryptoData;
+            if (cryptoData) result = cryptoData;
         } catch (error) { console.error("❌ CoinGecko error:", error); }
     }
 
-    // Mock (Último recurso)
-    console.warn(`⚠️ No se encontró datos reales, usando MOCK para ${cleanSymbol}`);
-    return getMockMarketData(cleanSymbol);
+    // Mock (Último recurso, pero marcando como tal)
+    if (!result) {
+        console.warn(`⚠️ No se encontró datos reales, usando MOCK para ${cleanSymbol}`);
+        result = getMockMarketData(cleanSymbol);
+    }
+
+    // 💾 GUARDAR EN CACHÉ antes de retornar
+    if (result) {
+        MARKET_CACHE.set(cleanSymbol, {
+            data: result,
+            timestamp: Date.now()
+        });
+    }
+
+    return result;
 }
 
 // 🚀 Nueva función: Binance Public API (Sin Key, Rate limit alto)

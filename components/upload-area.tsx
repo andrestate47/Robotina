@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useCallback, useRef } from "react"
-import { Upload, ImageIcon, X, BarChart3, AlertTriangle, CheckCircle2, Search, Coins } from "lucide-react"
+import { Upload, ImageIcon, X, BarChart3, AlertTriangle, CheckCircle2, Search, Coins, ThumbsUp, ThumbsDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,6 +34,8 @@ interface AnalysisResult {
     low24h?: number
     source: string
   }
+  es_historico?: boolean
+  warnings?: string[]
 }
 
 const POPULAR_ASSETS = [
@@ -74,6 +76,7 @@ export function UploadArea() {
   const [symbol, setSymbol] = useState("")
   const [tradingStyle, setTradingStyle] = useState("intraday")
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [userVote, setUserVote] = useState<"up" | "down" | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 🧲 Drag & Drop
@@ -132,6 +135,7 @@ export function UploadArea() {
     setIsAnalyzing(true)
     setStatusMessage(null)
     setAnalysisResult(null)
+    setUserVote(null) // Resetear voto para el nuevo análisis
 
     try {
       const response = await fetch("/api/analyze-image", {
@@ -369,6 +373,32 @@ export function UploadArea() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
+                  {/* 🚨 ALERTAS DEL SISTEMA (Validación Lógica) */}
+                  {(analysisResult.es_historico || (analysisResult.warnings && analysisResult.warnings.length > 0)) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="border border-yellow-500/30 bg-yellow-500/10 rounded-lg p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-bold text-yellow-500 mb-1">
+                            {analysisResult.es_historico ? "⚠️ Modo Análisis Histórico" : "⚠️ Advertencia de Lógica"}
+                          </h4>
+                          <div className="text-xs text-yellow-200/80 space-y-1">
+                            {analysisResult.es_historico && (
+                              <p>El precio en la imagen difiere del mercado real. Se asume que es un backtest o gráfico antiguo.</p>
+                            )}
+                            {analysisResult.warnings?.map((w, idx) => (
+                              <p key={idx}>• {w}</p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                     <motion.div
                       whileInView={{
@@ -614,6 +644,58 @@ export function UploadArea() {
                       <p className="text-sm text-gray-200 leading-relaxed font-light tracking-wide">{analysisResult.comentario}</p>
                     </div>
                   )}
+
+                  {/* Feedback: Votación del Usuario */}
+                  <div className="flex justify-end pt-3 border-t border-white/5 mt-4">
+                    {!userVote ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground/60 mr-1">¿Te resultó útil?</span>
+                        <button
+                          onClick={() => {
+                            setUserVote("up")
+                            fetch("/api/save-feedback", {
+                              method: "POST",
+                              body: JSON.stringify({
+                                vote: "up",
+                                symbol: analysisResult?.datos_mercado?.symbol,
+                                priceResult: analysisResult?.entrada
+                              })
+                            })
+                          }}
+                          className="p-1.5 hover:bg-green-500/10 hover:text-green-400 text-muted-foreground rounded-md transition-all group"
+                          title="Buen análisis"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserVote("down")
+                            fetch("/api/save-feedback", {
+                              method: "POST",
+                              body: JSON.stringify({
+                                vote: "down",
+                                symbol: analysisResult?.datos_mercado?.symbol,
+                                priceResult: analysisResult?.entrada
+                              })
+                            })
+                          }}
+                          className="p-1.5 hover:bg-red-500/10 hover:text-red-400 text-muted-foreground rounded-md transition-all group"
+                          title="Mal análisis"
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        </button>
+                      </div>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-[10px] text-green-400 flex items-center gap-1.5 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>¡Gracias por tu feedback!</span>
+                      </motion.div>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </div>
