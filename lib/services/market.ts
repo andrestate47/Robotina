@@ -1,4 +1,5 @@
-import yahooFinance from 'yahoo-finance2'; // V2 import (compatible con Node 20)
+const pkg = require('yahoo-finance2');
+const yahooFinance = pkg.default || pkg;
 
 export interface MarketData {
     symbol: string;
