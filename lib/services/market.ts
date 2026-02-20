@@ -1,6 +1,4 @@
-import YahooFinance from 'yahoo-finance2';
-
-const yahooFinance = new YahooFinance();
+import yahooFinance from 'yahoo-finance2'; // V2 import (compatible con Node 20)
 
 export interface MarketData {
     symbol: string;
