@@ -198,10 +198,10 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     let ticker = symbol.toUpperCase();
     const isForex = symbol.length === 6 && !symbol.includes("-") && !symbol.includes("/") && !symbol.includes(":");
 
-    // Mapping logic para Tickers PRO
-    if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(ticker)) ticker = "I:NDX";
-    else if (["SPX", "SP500", "US500", "S&P 500"].includes(ticker)) ticker = "I:SPX";
-    else if (["DJI", "DOW", "US30", "US 30"].includes(ticker)) ticker = "I:DJI";
+    // Mapping logic para Tickers PRO (Usamos ETFs para índices si estamos en plan de Stocks)
+    if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(ticker)) ticker = "QQQ";
+    else if (["SPX", "SP500", "US500", "S&P 500"].includes(ticker)) ticker = "SPY";
+    else if (["DJI", "DOW", "US30", "US 30"].includes(ticker)) ticker = "DIA";
     else if (isForex) ticker = `C:${ticker}`;
     else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(ticker) || ticker.includes("-USD")) {
         const coreSym = ticker.replace("-USD", "").replace("/USD", "");
