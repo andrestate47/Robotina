@@ -195,12 +195,17 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     const apiKey = process.env.POLYGON_API_KEY;
     if (!apiKey) return null;
 
-    let ticker = symbol.toUpperCase();
-    const isForex = symbol.length === 6 && !symbol.includes("-") && !symbol.includes("/") && !symbol.includes(":");
+    let ticker = symbol.toUpperCase().trim()
+        .replace(".US", "")
+        .replace(".NASDAQ", "")
+        .replace(".NYSE", "")
+        .replace(".AMEX", "");
+
+    const isForex = ticker.length === 6 && !ticker.includes("-") && !ticker.includes("/") && !ticker.includes(":");
 
     // Mapping logic para Tickers PRO (Usamos ETFs para índices si estamos en plan de Stocks)
     if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(ticker)) ticker = "QQQ";
-    else if (["SPX", "SP500", "US500", "S&P 500"].includes(ticker)) ticker = "SPY";
+    else if (["SPX", "SP500", "US500", "S&P 500", "S&P500"].includes(ticker)) ticker = "SPY";
     else if (["DJI", "DOW", "US30", "US 30"].includes(ticker)) ticker = "DIA";
     else if (isForex) ticker = `C:${ticker}`;
     else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(ticker) || ticker.includes("-USD")) {
@@ -211,27 +216,29 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     try {
         let url = "";
         if (ticker.startsWith("C:")) {
-            // Forex Real-time
             url = `https://api.polygon.io/v1/last/quote/${ticker}?apiKey=${apiKey}`;
         } else if (ticker.startsWith("X:")) {
-            // Crypto Real-time
             url = `https://api.polygon.io/v1/last/crypto/${ticker.replace("X:", "")}/USD?apiKey=${apiKey}`;
         } else {
-            // Stocks / Indices Real-time Last Trade
             url = `https://api.polygon.io/v2/last/trade/${ticker}?apiKey=${apiKey}`;
         }
 
-        console.log(`📡 Polygon PRO Fetch: ${url.replace(apiKey, "HIDDEN")}`);
-        const res = await fetch(url);
+        console.log(`📡 POLYGON ATTEMPT: ${ticker}`);
+
+        // Forzamos NO CACHÉ para evitar que Next.js nos dé datos viejos o errores guardados
+        const res = await fetch(url, { protocol: "https:", cache: 'no-store', next: { revalidate: 0 } } as any);
+
         if (!res.ok) {
-            console.warn(`⚠️ Polygon PRO (${ticker}) falló con status ${res.status}. Probando fallback de Agregados...`);
-            // Fallback al prev-close o último minuto si el last trade falla
+            console.warn(`⚠️ Polygon PRO (${ticker}) status: ${res.status}. Probando fallback...`);
             const fallbackUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${apiKey}`;
-            const fRes = await fetch(fallbackUrl);
-            if (!fRes.ok) throw new Error("Polygon falló completamente");
+            const fRes = await fetch(fallbackUrl, { cache: 'no-store', next: { revalidate: 0 } } as any);
+
+            if (!fRes.ok) throw new Error(`Polygon falló con status ${fRes.status}`);
+
             const fData = await fRes.json();
             if (fData.results?.[0]) {
                 const r = fData.results[0];
+                console.log(`✅ Polygon Fallback Success for ${ticker}: ${r.c}`);
                 return {
                     symbol: prettifySymbol(ticker),
                     price: r.c,
@@ -244,22 +251,21 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
         }
 
         const data = await res.json();
-        const result = data.results || data.last; // Depende del endpoint
+        const result = data.results || data.last;
 
         if (result) {
             const price = result.p || result.askprice || result.price || 0;
-            if (price === 0) return null;
-
+            console.log(`✅ Polygon PRO Success for ${ticker}: ${price}`);
             return {
                 symbol: prettifySymbol(ticker),
                 price: price,
-                change24h: 0, // El last trade no da % cambio directamente
+                change24h: 0,
                 lastUpdated: new Date().toISOString(),
                 source: "Polygon"
             };
         }
     } catch (e) {
-        console.error("❌ Polygon PRO error:", e);
+        console.error("❌ Polygon Critical Error:", e);
     }
 
     return null;
