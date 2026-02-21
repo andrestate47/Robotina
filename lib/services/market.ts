@@ -65,38 +65,37 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
         }
     }
 
-    // --- ESTRATEGIA STOCKS / FOREX / INDICES (Prioridad Datos Recientes) ---
+    // --- ESTRATEGIA STOCKS / FOREX / INDICES (Prioridad Datos PRO) ---
     else {
-        // 1. Yahoo Finance (Intraday)
+        // 1. Polygon PRO (Máxima precisión al segundo)
         try {
-            let yahooSymbol = cleanSymbol;
-            if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
-            else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
-            else if (cleanSymbol === "DJI") yahooSymbol = "^DJI";
-            else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
-            else if (cleanSymbol === "GBPUSD") yahooSymbol = "GBPUSD=X";
-            else if (cleanSymbol === "USDJPY") yahooSymbol = "JPY=X";
-            // 🛢️ COMMODITIES (Oro, Plata, Petróleo)
-            else if (["XAU", "GOLD", "ORO", "XAUUSD"].includes(cleanSymbol)) yahooSymbol = "GC=F"; // Futuros Oro (Más data que spot)
-            else if (["XAG", "SILVER", "PLATA", "XAGUSD"].includes(cleanSymbol)) yahooSymbol = "SI=F"; // Futuros Plata
-            else if (["OIL", "WTI", "USOIL"].includes(cleanSymbol)) yahooSymbol = "CL=F"; // Crudo WTI
-            else if (["BRENT", "UKOIL"].includes(cleanSymbol)) yahooSymbol = "BZ=F"; // Crudo Brent
-
-            console.log(`📡 Intentando Yahoo (Intraday) para: ${yahooSymbol}...`);
-            const stockData = await fetchStockData(yahooSymbol);
-            if (stockData) result = stockData;
+            console.log(`📡 Intentando Polygon PRO (Prioridad #1) para: ${cleanSymbol}...`);
+            const polygonData = await fetchPolygonData(cleanSymbol);
+            if (polygonData) result = polygonData;
         } catch (e) {
-            console.error("❌ Yahoo Finance error:", e);
+            console.error("❌ Polygon PRO error:", e);
         }
 
-        // 2. Polygon (Backup - Cierre Anterior)
+        // 2. Yahoo Finance (Backup - Scraping Directo)
         if (!result) {
             try {
-                console.log(`📡 Intentando Polygon (Backup) para: ${cleanSymbol}...`);
-                const polygonData = await fetchPolygonData(cleanSymbol);
-                if (polygonData) result = polygonData;
+                let yahooSymbol = cleanSymbol;
+                if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
+                else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
+                else if (cleanSymbol === "DJI") yahooSymbol = "^DJI";
+                else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
+                else if (cleanSymbol === "GBPUSD") yahooSymbol = "GBPUSD=X";
+                else if (cleanSymbol === "USDJPY") yahooSymbol = "JPY=X";
+                else if (["XAU", "GOLD", "ORO", "XAUUSD"].includes(cleanSymbol)) yahooSymbol = "GC=F";
+                else if (["XAG", "SILVER", "PLATA", "XAGUSD"].includes(cleanSymbol)) yahooSymbol = "SI=F";
+                else if (["OIL", "WTI", "USOIL"].includes(cleanSymbol)) yahooSymbol = "CL=F";
+                else if (["BRENT", "UKOIL"].includes(cleanSymbol)) yahooSymbol = "BZ=F";
+
+                console.log(`📡 Intentando Yahoo (Backup #2) para: ${yahooSymbol}...`);
+                const stockData = await fetchStockData(yahooSymbol);
+                if (stockData) result = stockData;
             } catch (e) {
-                console.error("❌ Polygon Stocks error:", e);
+                console.error("❌ Yahoo Finance fallback error:", e);
             }
         }
     }
