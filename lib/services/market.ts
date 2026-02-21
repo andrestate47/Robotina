@@ -1,5 +1,4 @@
-const pkg = require('yahoo-finance2');
-const yahooFinance = pkg.default || pkg;
+
 
 export interface MarketData {
     symbol: string;
@@ -197,48 +196,70 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
     const apiKey = process.env.POLYGON_API_KEY;
     if (!apiKey) return null;
 
-    let ticker = symbol;
-    // Mapping logic
-    if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(symbol)) ticker = "I:NDX";
-    else if (["SPX", "SP500", "US500", "S&P 500"].includes(symbol)) ticker = "I:SPX";
-    else if (["DJI", "DOW", "US30", "US 30"].includes(symbol)) ticker = "I:DJI";
-    else if (symbol.length === 6 && !symbol.includes("-") && !symbol.includes("/")) {
-        ticker = `C:${symbol}`;
-    } else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(symbol) || symbol.includes("-USD")) {
-        const coreSym = symbol.replace("-USD", "").replace("/USD", "");
+    let ticker = symbol.toUpperCase();
+    const isForex = symbol.length === 6 && !symbol.includes("-") && !symbol.includes("/") && !symbol.includes(":");
+
+    // Mapping logic para Tickers PRO
+    if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(ticker)) ticker = "I:NDX";
+    else if (["SPX", "SP500", "US500", "S&P 500"].includes(ticker)) ticker = "I:SPX";
+    else if (["DJI", "DOW", "US30", "US 30"].includes(ticker)) ticker = "I:DJI";
+    else if (isForex) ticker = `C:${ticker}`;
+    else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(ticker) || ticker.includes("-USD")) {
+        const coreSym = ticker.replace("-USD", "").replace("/USD", "");
         ticker = `X:${coreSym}USD`;
     }
 
-    console.log(`📡 Polygon Fetch Ticker: ${ticker}`);
+    try {
+        let url = "";
+        if (ticker.startsWith("C:")) {
+            // Forex Real-time
+            url = `https://api.polygon.io/v1/last/quote/${ticker}?apiKey=${apiKey}`;
+        } else if (ticker.startsWith("X:")) {
+            // Crypto Real-time
+            url = `https://api.polygon.io/v1/last/crypto/${ticker.replace("X:", "")}/USD?apiKey=${apiKey}`;
+        } else {
+            // Stocks / Indices Real-time Last Trade
+            url = `https://api.polygon.io/v2/last/trade/${ticker}?apiKey=${apiKey}`;
+        }
 
-    // Helper to fetch valid prev close
-    const fetchPreviousClose = async (t: string) => {
-        const url = `https://api.polygon.io/v2/aggs/ticker/${t}/prev?adjusted=true&apiKey=${apiKey}`;
+        console.log(`📡 Polygon PRO Fetch: ${url.replace(apiKey, "HIDDEN")}`);
         const res = await fetch(url);
-        if (!res.ok) return null;
-        return res.json();
-    };
+        if (!res.ok) {
+            // Fallback al prev-close si el last trade falla (fuera de horario por ejemplo)
+            const fallbackUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${apiKey}`;
+            const fRes = await fetch(fallbackUrl);
+            if (!fRes.ok) return null;
+            const fData = await fRes.json();
+            if (fData.results?.[0]) {
+                const r = fData.results[0];
+                return {
+                    symbol: prettifySymbol(ticker),
+                    price: r.c,
+                    change24h: 0,
+                    lastUpdated: new Date().toISOString(),
+                    source: "Polygon"
+                };
+            }
+            return null;
+        }
 
-    let data = await fetchPreviousClose(ticker);
+        const data = await res.json();
+        const result = data.results || data.last; // Depende del endpoint
 
-    if (data && data.results && data.results.length > 0) {
-        const result = data.results[0];
-        const price = result.c;
-        const open = result.o;
-        const change = open ? ((price - open) / open) * 100 : 0;
+        if (result) {
+            const price = result.p || result.askprice || result.price || 0;
+            if (price === 0) return null;
 
-        console.log(`✅ Polygon data found for ${ticker}: ${price}`);
-
-        return {
-            symbol: prettifySymbol(ticker),
-            price: price,
-            change24h: parseFloat(change.toFixed(2)),
-            volume24h: result.v,
-            high24h: result.h,
-            low24h: result.l,
-            lastUpdated: new Date().toISOString(),
-            source: "Polygon"
-        };
+            return {
+                symbol: prettifySymbol(ticker),
+                price: price,
+                change24h: 0, // El last trade no da % cambio directamente
+                lastUpdated: new Date().toISOString(),
+                source: "Polygon"
+            };
+        }
+    } catch (e) {
+        console.error("❌ Polygon PRO error:", e);
     }
 
     return null;
@@ -285,30 +306,35 @@ async function fetchCryptoData(symbol: string): Promise<MarketData | null> {
 
 async function fetchStockData(symbol: string): Promise<MarketData | null> {
     try {
-        // @ts-ignore
-        const quote: any = await yahooFinance.quote(symbol);
+        // Usamos la API pública de Yahoo directamente para evitar líos de librerías/versiones de Node
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+        const res = await fetch(url);
 
-        if (!quote) return null;
+        if (!res.ok) return null;
 
-        const price = quote.regularMarketPrice || quote.ask || quote.bid || 0;
+        const data = await res.json();
+        const result = data.chart?.result?.[0];
 
-        if (price <= 0) return null;
+        if (!result || !result.meta) return null;
 
-        const prevClose = quote.regularMarketPreviousClose || price;
-        const change = quote.regularMarketChangePercent || ((price - prevClose) / prevClose) * 100;
+        const meta = result.meta;
+        const price = meta.regularMarketPrice;
+        const prevClose = meta.previousClose;
+        const change = price - prevClose;
+        const changePercent = (change / prevClose) * 100;
 
         return {
-            symbol: prettifySymbol(quote.symbol || symbol),
+            symbol: prettifySymbol(meta.symbol || symbol),
             price: price,
-            change24h: parseFloat(change ? change.toFixed(2) : "0"),
-            volume24h: quote.regularMarketVolume || 0,
-            high24h: quote.regularMarketDayHigh || price,
-            low24h: quote.regularMarketDayLow || price,
+            change24h: parseFloat(changePercent.toFixed(2)),
+            volume24h: meta.regularMarketVolume || 0,
+            high24h: meta.regularMarketDayHigh || price,
+            low24h: meta.regularMarketDayLow || price,
             lastUpdated: new Date().toISOString(),
             source: "Yahoo Finance"
         };
     } catch (e) {
-        console.error(`❌ Error Yahoo Finance (${symbol}):`, e);
+        console.error(`❌ Error Yahoo Direct API (${symbol}):`, e);
         return null;
     }
 }
