@@ -224,10 +224,11 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
         console.log(`📡 Polygon PRO Fetch: ${url.replace(apiKey, "HIDDEN")}`);
         const res = await fetch(url);
         if (!res.ok) {
-            // Fallback al prev-close si el last trade falla (fuera de horario por ejemplo)
+            console.warn(`⚠️ Polygon PRO (${ticker}) falló con status ${res.status}. Probando fallback de Agregados...`);
+            // Fallback al prev-close o último minuto si el last trade falla
             const fallbackUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${apiKey}`;
             const fRes = await fetch(fallbackUrl);
-            if (!fRes.ok) return null;
+            if (!fRes.ok) throw new Error("Polygon falló completamente");
             const fData = await fRes.json();
             if (fData.results?.[0]) {
                 const r = fData.results[0];
