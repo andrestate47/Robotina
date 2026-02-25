@@ -224,21 +224,24 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
 
     try {
         let url = "";
+        let isStock = false;
+
         if (ticker.startsWith("C:")) {
             url = `https://api.polygon.io/v1/last/quote/${ticker}?apiKey=${apiKey}`;
         } else if (ticker.startsWith("X:")) {
             url = `https://api.polygon.io/v1/last/crypto/${ticker.replace("X:", "")}/USD?apiKey=${apiKey}`;
         } else {
-            url = `https://api.polygon.io/v2/last/trade/${ticker}?apiKey=${apiKey}`;
+            // 🚀 USAMOS SNAPSHOT PARA STOCKS (Funciona en Plan Starter $29)
+            url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${apiKey}`;
+            isStock = true;
         }
 
-        console.log(`📡 POLYGON ATTEMPT: ${ticker}`);
+        console.log(`📡 POLYGON ATTEMPT: ${ticker} (${isStock ? "Snapshot" : "Last"})`);
 
-        // Forzamos NO CACHÉ para que Polygon siempre nos dé datos frescos
         const res = await fetch(url, { cache: 'no-store', next: { revalidate: 0 } } as any);
 
         if (!res.ok) {
-            console.warn(`⚠️ Polygon PRO (${ticker}) status: ${res.status}. Probando fallback...`);
+            console.warn(`⚠️ Polygon PRO (${ticker}) status: ${res.status}. Probando fallback aggregates...`);
             const fallbackUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${apiKey}`;
             const fRes = await fetch(fallbackUrl, { cache: 'no-store', next: { revalidate: 0 } } as any);
 
@@ -247,7 +250,7 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
             const fData = await fRes.json();
             if (fData.results?.[0]) {
                 const r = fData.results[0];
-                console.log(`✅ Polygon Fallback Success for ${ticker}: ${r.c}`);
+                console.log(`✅ Polygon Aggregates Fallback for ${ticker}: ${r.c}`);
                 return {
                     symbol: prettifySymbol(ticker),
                     price: r.c,
@@ -262,18 +265,31 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
         }
 
         const data = await res.json();
-        const result = data.results || data.last;
 
-        if (result) {
-            const price = result.p || result.askprice || result.price || 0;
-            console.log(`✅ Polygon PRO Success for ${ticker}: ${price}`);
-
-            // Intentamos obtener el rango diario (High/Low) del snapshot o prev si es posible
-            // Para no hacer otra llamada lenta, si el plan es limitado, al menos devolvemos el precio
+        // --- PROCESAR RESPUESTA SEGÚN ENDPOINT ---
+        if (isStock && data.ticker) {
+            const t = data.ticker;
+            const price = t.min?.c || t.day?.c || t.prevDay?.c || 0;
+            console.log(`✅ Polygon Snapshot Success for ${ticker}: $${price}`);
             return {
                 symbol: prettifySymbol(ticker),
                 price: price,
-                high24h: result.h || undefined, // Algunos endpoints de last no dan H/L
+                high24h: t.day?.h || t.prevDay?.h,
+                low24h: t.day?.l || t.prevDay?.l,
+                change24h: parseFloat(t.todaysChangePerc?.toFixed(2) || "0"),
+                lastUpdated: new Date().toISOString(),
+                source: "Polygon"
+            };
+        }
+
+        const result = data.results || data.last;
+        if (result) {
+            const price = result.p || result.askprice || result.price || 0;
+            console.log(`✅ Polygon Last Data Success for ${ticker}: $${price}`);
+            return {
+                symbol: prettifySymbol(ticker),
+                price: price,
+                high24h: result.h || undefined,
                 low24h: result.l || undefined,
                 change24h: 0,
                 lastUpdated: new Date().toISOString(),
