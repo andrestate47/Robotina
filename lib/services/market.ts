@@ -225,8 +225,8 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
 
         console.log(`📡 POLYGON ATTEMPT: ${ticker}`);
 
-        // Forzamos NO CACHÉ para evitar que Next.js nos dé datos viejos o errores guardados
-        const res = await fetch(url, { protocol: "https:", cache: 'no-store', next: { revalidate: 0 } } as any);
+        // Forzamos NO CACHÉ para que Polygon siempre nos dé datos frescos
+        const res = await fetch(url, { cache: 'no-store', next: { revalidate: 0 } } as any);
 
         if (!res.ok) {
             console.warn(`⚠️ Polygon PRO (${ticker}) status: ${res.status}. Probando fallback...`);
