@@ -242,6 +242,8 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
                 return {
                     symbol: prettifySymbol(ticker),
                     price: r.c,
+                    high24h: r.h,
+                    low24h: r.l,
                     change24h: 0,
                     lastUpdated: new Date().toISOString(),
                     source: "Polygon"
@@ -256,9 +258,14 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
         if (result) {
             const price = result.p || result.askprice || result.price || 0;
             console.log(`✅ Polygon PRO Success for ${ticker}: ${price}`);
+
+            // Intentamos obtener el rango diario (High/Low) del snapshot o prev si es posible
+            // Para no hacer otra llamada lenta, si el plan es limitado, al menos devolvemos el precio
             return {
                 symbol: prettifySymbol(ticker),
                 price: price,
+                high24h: result.h || undefined, // Algunos endpoints de last no dan H/L
+                low24h: result.l || undefined,
                 change24h: 0,
                 lastUpdated: new Date().toISOString(),
                 source: "Polygon"
