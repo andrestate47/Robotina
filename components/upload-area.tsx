@@ -457,12 +457,23 @@ export function UploadArea() {
                     </motion.div>
                     Lector de Gráficas
                     {analysisResult.datos_mercado && (
-                      <span className="text-[10px] font-normal bg-blue-900/30 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className={cn(
+                        "text-[10px] font-bold border px-2 py-0.5 rounded-full flex items-center gap-1",
+                        analysisResult.datos_mercado.source === "Polygon"
+                          ? "bg-indigo-900/40 text-indigo-400 border-indigo-500/50"
+                          : "bg-blue-900/30 text-blue-400 border-blue-800/50"
+                      )}>
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                          <span className={cn(
+                            "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                            analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-400" : "bg-blue-400"
+                          )}></span>
+                          <span className={cn(
+                            "relative inline-flex rounded-full h-2 w-2",
+                            analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-500" : "bg-blue-500"
+                          )}></span>
                         </span>
-                        En Vivo • {analysisResult.datos_mercado.source}
+                        En Vivo • {analysisResult.datos_mercado.source === "Polygon" ? "Polygon PRO" : analysisResult.datos_mercado.source}
                       </span>
                     )}
                   </h3>

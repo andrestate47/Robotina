@@ -118,10 +118,13 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
 
     // 💾 GUARDAR EN CACHÉ antes de retornar
     if (result) {
+        console.log(`✅ FINAL CHOICE: ${cleanSymbol} -> ${result.price} via ${result.source}`);
         MARKET_CACHE.set(cleanSymbol, {
             data: result,
             timestamp: Date.now()
         });
+    } else {
+        console.error(`❌ FINAL FAILURE: Could not find any data for ${cleanSymbol}`);
     }
 
     return result;
@@ -201,12 +204,18 @@ async function fetchPolygonData(symbol: string): Promise<MarketData | null> {
         .replace(".NYSE", "")
         .replace(".AMEX", "");
 
+    // 🔍 Limpieza profunda de ticker (Ej: NASDAQ:NVDA -> NVDA)
+    if (ticker.includes(":")) {
+        const parts = ticker.split(":");
+        ticker = parts[parts.length - 1];
+    }
+
     const isForex = ticker.length === 6 && !ticker.includes("-") && !ticker.includes("/") && !ticker.includes(":");
 
     // Mapping logic para Tickers PRO (Usamos ETFs para índices si estamos en plan de Stocks)
     if (["NDX", "NASDAQ", "NASDAQ100", "US100", "NAS100"].includes(ticker)) ticker = "QQQ";
     else if (["SPX", "SP500", "US500", "S&P 500", "S&P500"].includes(ticker)) ticker = "SPY";
-    else if (["DJI", "DOW", "US30", "US 30"].includes(ticker)) ticker = "DIA";
+    else if (["DJI", "DOW", "US30", "US 30", "^DJI"].includes(ticker)) ticker = "DIA";
     else if (isForex) ticker = `C:${ticker}`;
     else if (["BTC", "ETH", "SOL", "XRP", "ADA"].includes(ticker) || ticker.includes("-USD")) {
         const coreSym = ticker.replace("-USD", "").replace("/USD", "");
