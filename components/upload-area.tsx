@@ -39,32 +39,34 @@ interface AnalysisResult {
 }
 
 const POPULAR_ASSETS = [
-  { symbol: "BTC", name: "Bitcoin" },
-  { symbol: "ETH", name: "Ethereum" },
-  { symbol: "SOL", name: "Solana" },
-  { symbol: "XRP", name: "Ripple" },
-  { symbol: "BNB", name: "Binance Coin" },
-  { symbol: "ADA", name: "Cardano" },
-  { symbol: "DOGE", name: "Dogecoin" },
-  { symbol: "AVAX", name: "Avalanche" },
-  { symbol: "LINK", name: "Chainlink" },
-  { symbol: "DOT", name: "Polkadot" },
-  { symbol: "MATIC", name: "Polygon" },
-  { symbol: "LTC", name: "Litecoin" },
-  { symbol: "AAPL", name: "Apple Inc." },
-  { symbol: "MSFT", name: "Microsoft" },
-  { symbol: "GOOGL", name: "Alphabet (Google)" },
-  { symbol: "AMZN", name: "Amazon" },
-  { symbol: "TSLA", name: "Tesla" },
-  { symbol: "NVDA", name: "Nvidia" },
-  { symbol: "META", name: "Meta (Facebook)" },
-  { symbol: "NFLX", name: "Netflix" },
-  { symbol: "EURUSD", name: "Euro / US Dollar" },
-  { symbol: "GBPUSD", name: "GBP / US Dollar" },
-  { symbol: "USDJPY", name: "US Dollar / JPY" },
-  { symbol: "XAUUSD", name: "Gold Spot / US Dollar" },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF" },
-  { symbol: "QQQ", name: "Invesco QQQ Trust" },
+  // ÍNDICES FAMOSOS
+  { symbol: "SPY", name: "S&P 500 (ETF)", category: "Índice" },
+  { symbol: "QQQ", name: "Nasdaq 100", category: "Índice" },
+  { symbol: "DIA", name: "Dow Jones 30", category: "Índice" },
+  { symbol: "US30", name: "Wall Street 30", category: "Índice" },
+  { symbol: "GER40", name: "DAX 40 (Alemania)", category: "Índice" },
+
+  // ACCIONES FAMOSAS
+  { symbol: "TSLA", name: "Tesla Inc.", category: "Acción" },
+  { symbol: "NVDA", name: "Nvidia Corp.", category: "Acción" },
+  { symbol: "AAPL", name: "Apple Inc.", category: "Acción" },
+  { symbol: "MSFT", name: "Microsoft", category: "Acción" },
+  { symbol: "AMZN", name: "Amazon", category: "Acción" },
+  { symbol: "GOOGL", name: "Google", category: "Acción" },
+  { symbol: "META", name: "Meta (Facebook)", category: "Acción" },
+  { symbol: "NFLX", name: "Netflix", category: "Acción" },
+
+  // FOREX & METALES
+  { symbol: "XAUUSD", name: "Oro (Gold)", category: "Commodity" },
+  { symbol: "WTI", name: "Petróleo (Crudo)", category: "Commodity" },
+  { symbol: "EURUSD", name: "Euro / Dólar", category: "Forex" },
+  { symbol: "GBPUSD", name: "Libra / Dólar", category: "Forex" },
+  { symbol: "USDJPY", name: "Dólar / Yen", category: "Forex" },
+
+  // CRYPTO TOP
+  { symbol: "BTC", name: "Bitcoin", category: "Crypto" },
+  { symbol: "ETH", name: "Ethereum", category: "Crypto" },
+  { symbol: "SOL", name: "Solana", category: "Crypto" },
 ]
 
 export function UploadArea() {
@@ -228,35 +230,74 @@ export function UploadArea() {
                 autoComplete="off"
               />
 
-              {/* Sugerencias de Autocompletado */}
-              {showSuggestions && symbol.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f172a] border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
-                  {POPULAR_ASSETS.filter(
-                    (asset) =>
-                      asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
-                      asset.name.toLowerCase().includes(symbol.toLowerCase())
-                  ).length > 0 ? (
-                    POPULAR_ASSETS.filter(
-                      (asset) =>
-                        asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
-                        asset.name.toLowerCase().includes(symbol.toLowerCase())
-                    ).map((asset) => (
-                      <div
-                        key={asset.symbol}
-                        className="px-3 py-1.5 hover:bg-primary/20 cursor-pointer flex items-center justify-between text-xs transition-colors"
-                        onPointerDown={() => {
-                          setSymbol(asset.symbol)
-                          setShowSuggestions(false)
-                        }}
-                      >
-                        <span className="font-bold text-white">{asset.symbol}</span>
-                        <span className="text-white/50 text-[10px]">{asset.name}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-1.5 text-[10px] text-white/30 text-center">
-                      Sin coincidencias
+              {/* Sugerencias de Autocompletado (Active Search) */}
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f172a]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar">
+                  {symbol.length === 0 ? (
+                    <div className="py-2">
+                      <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-white/40 font-bold">💎 Top Activos</p>
+                      {POPULAR_ASSETS.slice(0, 6).map((asset) => (
+                        <div
+                          key={asset.symbol}
+                          className="px-3 py-2 hover:bg-white/5 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                          onPointerDown={() => {
+                            setSymbol(asset.symbol)
+                            setShowSuggestions(false)
+                          }}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-bold text-white">{asset.symbol}</span>
+                            <span className="text-white/40 text-[9px]">{asset.name}</span>
+                          </div>
+                          <span className="px-1.5 py-0.5 rounded-[4px] bg-white/5 text-white/50 text-[8px] font-medium border border-white/5">
+                            {asset.category}
+                          </span>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <>
+                      {POPULAR_ASSETS.filter(
+                        (asset) =>
+                          asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
+                          asset.name.toLowerCase().includes(symbol.toLowerCase()) ||
+                          asset.category?.toLowerCase().includes(symbol.toLowerCase())
+                      ).length > 0 ? (
+                        POPULAR_ASSETS.filter(
+                          (asset) =>
+                            asset.symbol.toLowerCase().includes(symbol.toLowerCase()) ||
+                            asset.name.toLowerCase().includes(symbol.toLowerCase()) ||
+                            asset.category?.toLowerCase().includes(symbol.toLowerCase())
+                        ).map((asset) => (
+                          <div
+                            key={asset.symbol}
+                            className="px-3 py-2 hover:bg-primary/20 cursor-pointer flex items-center justify-between text-xs transition-colors group"
+                            onPointerDown={() => {
+                              setSymbol(asset.symbol)
+                              setShowSuggestions(false)
+                            }}
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-bold text-white group-hover:text-primary-foreground transition-colors">{asset.symbol}</span>
+                              <span className="text-white/40 text-[9px] group-hover:text-white/70">{asset.name}</span>
+                            </div>
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold uppercase tracking-tighter border",
+                              asset.category === "Índice" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                asset.category === "Acción" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                  asset.category === "Crypto" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                                    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            )}>
+                              {asset.category}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-4 text-[10px] text-white/30 text-center italic">
+                          No se encontraron coincidencias
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
