@@ -146,9 +146,12 @@ export function UploadArea() {
         body: JSON.stringify({ data: uploadedImage, symbol, tradingStyle }),
       })
 
-      if (!response.ok) throw new Error(`Error del servidor: ${response.status}`)
-
       const data = await response.json()
+
+      if (!response.ok && !data.error) {
+        throw new Error(`Error del servidor: ${response.status}`)
+      }
+
       console.log("✅ Resultado del análisis:", data)
 
       let parsed: AnalysisResult = data
