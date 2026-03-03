@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: "Look at the text in the chart image carefully. Identify the financial asset displayed. Your goal is to return the PRECISE Ticker Symbol used in financial markets (Yahoo Finance style pref).\n\nCRITICAL RULES:\n1. If you see specific text like 'S&P 500 Pure Growth', return '^SP500PG' (or appropriate ETF like 'RPG').\n2. If you see a code in parentheses like '(SPBUYUN)', RETURN 'SPBUYUN'.\n3. DO NOT generalize specialized S&P indices to just 'SPX'.\n4. 'Nasdaq 100' -> 'NDX'. 'Gold' -> 'GC=F'. 'Bitcoin' -> 'BTC-USD'.\n5. If the image has a clear ticker like 'AAPL', 'TSLA', 'EURUSD', return it exactly.\n\nReturn ONLY the symbol string. No explanations." },
+                  { type: "text", text: "Look at the text in the chart image carefully. Identify the financial asset displayed. Your goal is to return the PRECISE Ticker Symbol used in financial markets (Yahoo Finance style pref).\n\nCRITICAL RULES:\n1. If you see specific text like 'S&P 500 Pure Growth', return '^SP500PG' (or appropriate ETF like 'RPG').\n2. If you see a code in parentheses like '(SPBUYUN)', RETURN 'SPBUYUN'.\n3. DO NOT generalize specialized S&P indices to just 'SPX'.\n4. 'Nasdaq 100' -> 'NDX'. 'Gold' -> 'GC=F'. 'Bitcoin' -> 'BTC-USD'.\n5. If the image has a clear ticker like 'AAPL', 'TSLA', 'EURUSD', return it exactly.\n6. EXTREMELY IMPORTANT: If you CANNOT find a clear, unambiguous ticker symbol or asset name in the image (e.g. it's too cropped, blurry, or missing), you MUST return EXACTLY the word 'UNKNOWN'. Do NOT guess or hallucinate a symbol if one is not clearly visible.\n\nReturn ONLY the symbol string or 'UNKNOWN'. No explanations." },
                   { type: "image_url", image_url: { url: data.startsWith("data:image") ? data : `data:image/png;base64,${data}` } },
                 ],
               },
@@ -44,13 +44,28 @@ export async function POST(req: NextRequest) {
           // Limpiar posibles puntos o texto extra
           activeSymbol = detectedObj.replace(/\.$/, "").trim()
           console.log(`🧠 IA detectó símbolo: ${activeSymbol}`)
+        } else {
+          console.log(`❌ IA no pudo identificar el símbolo (Devolvió: ${detectedObj})`);
+          return NextResponse.json({
+            error: "UNKNOWN_SYMBOL",
+            message: "No pudimos identificar el activo en la imagen. Por favor, escribe el símbolo manualmente arriba de la imagen."
+          }, { status: 400 });
         }
       } catch (e) {
         console.error("⚠️ Error detectando símbolo:", e)
       }
     }
 
+    // Si después de todo sigue sin haber símbolo (ej. fallo de red en detección auto)
+    if (!activeSymbol) {
+      return NextResponse.json({
+        error: "UNKNOWN_SYMBOL",
+        message: "No pudimos identificar el activo en la imagen. Por favor, escríbelo en el buscador arriba."
+      }, { status: 400 });
+    }
+
     // 🔍 Paso 2: Obtener datos de mercado reales
+
     let marketInfoText = ""
     let marketData = null
 

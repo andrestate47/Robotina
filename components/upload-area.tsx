@@ -160,11 +160,23 @@ export function UploadArea() {
         }
       }
 
-      if (parsed.error) setStatusMessage(`❌ ${parsed.error}`)
-      else if (parsed.comentario) setStatusMessage(`⚠️ ${parsed.comentario}`)
-      else setStatusMessage("✅ Análisis completado con éxito.")
+      if (parsed.error) {
+        if (parsed.error === "UNKNOWN_SYMBOL" || data.error === "UNKNOWN_SYMBOL") {
+          setStatusMessage("❗ No pude identificar el activo automáticamente. Escribe el símbolo en el buscador de arriba.");
+        } else {
+          setStatusMessage(`❌ ${parsed.error || data.error}`);
+        }
+        setAnalysisResult(null);
+      }
+      else if (parsed.comentario) {
+        setStatusMessage(`⚠️ ${parsed.comentario}`)
+        setAnalysisResult(parsed)
+      }
+      else {
+        setStatusMessage("✅ Análisis completado con éxito.")
+        setAnalysisResult(parsed)
+      }
 
-      setAnalysisResult(parsed)
     } catch (error) {
       console.error("❌ Error analizando la imagen:", error)
       setStatusMessage("Error inesperado al procesar la imagen.")
