@@ -96,44 +96,42 @@ Usa estos datos como contexto adicional para validar tu análisis gráfico.
       },
       body: JSON.stringify({
         model: "gpt-4o-2024-08-06",
+        temperature: 0.3, // Temperatura baja para precisión analítica, pero permitiendo razonamiento
         response_format: { type: "json_object" }, // Forzar JSON estricto
         messages: [
           {
             role: "system",
-            content: "Eres un asistente experto en análisis técnico de gráficos financieros. Tu tarea es extraer información visual y proporcionar niveles técnicos de referencia basados puramente en la acción del precio observada. Responde siempre en formato JSON válido."
+            content: "Eres un analista técnico institucional experto. Tu objetivo es encontrar OPORTUNIDADES ASIMÉTRICAS de mercado (LONG o SHORT). Tienes aversión a dar respuestas neutrales. Siempre intentas encontrar una ventaja direccional basada en la acción del precio. Responde siempre en formato JSON válido."
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analiza la imagen adjunta. Identifica patrones técnicos y niveles clave.
+                text: `Analiza la imagen adjunta a fondo. Busca sutiles pistas direccionales (velas de rechazo, roturas falsas, estructura de mercado en temporalidades menores).
 
 ${marketInfoText}
 
-INSTRUCCIONES CLAVE DE PRECIO:
-1. Analiza el eje Y de la imagen. SI el precio en el gráfico es MUY diferente (>5%) del dato real provisto ($${marketData?.price}), IGNORA EL DATO REAL y usa los precios de la imagen (asume que es un gráfico histórico o backtest).
-2. SI los precios coinciden aproximadamente, usa el PRECIO REAL ($${marketData?.price}) como ancla de precisión.
-3. Si es LONG, la "entrada" debe ser el nivel lógico actual en la imagen.
-4. Si es SHORT, la "entrada" debe ser el nivel lógico actual en la imagen.
-5. Los objetivos (Salida) y Stop Loss deben ser coherentes con la escala VISUAL de la imagen.
+INSTRUCCIONES DIRECTIVAS - CRÍTICO:
+1. FUERZA DIRECCIONAL: Evita a toda costa el análisis "NEUTRO". Incluso en canales laterales, suele haber una operativa lógica (ej. comprar soporte = LONG, vender resistencia = SHORT). Busca patrones como banderas, cuñas, o divergencias.
+2. Usa "NEUTRO" *ÚNICAMENTE* si el gráfico es un caos total sin liquidez o si no hay absolutamente ningún setup con R:R lógico (algo extremadamente raro). Si detectas consolidación, pregúntate hacia dónde es más probable el quiebre y da ese sesgo.
+3. INSTRUCCIONES CLAVE DE PRECIO:
+   - Analiza el eje Y de la imagen. SI el precio visual es MUY diferente (>5%) del dato real ($${marketData?.price}), IGNORA EL DATO REAL y usa los precios de la imagen (gráfico histórico).
+   - SI coinciden, usa el PRECIO REAL ($${marketData?.price}) como tu ancla exacta para la "entrada".
+   - Si es LONG/SHORT, la "entrada" debe estar pegada al cierre de la última vela.
+   - Los objetivos (Salida) y Stop Loss deben ser lógicos y visibles en la escala de la imagen.
 
 FORMATO JSON REQUERIDO:
 {
   "tipo_analisis": "LONG" | "SHORT" | "NEUTRO",
-  "entrada": number (Precio de ejecución sugerido, cercano al precio real),
-  "salida": number (Objetivo técnico / Take Profit),
-  "stop_loss": number (Nivel de invalidación),
+  "entrada": number (Precio de entrada actual),
+  "salida": number (Objetivo técnico principal),
+  "stop_loss": number (Nivel lógico de invalidación técnica),
   "confianza": "Alta" | "Media" | "Baja",
-  "patron_detectado": string (ej. "Doble Suelo", "Tendencia Alcista"),
-  "indicadores_clave": string[] (ej. ["RSI sobreventa", "Volumen alto"]),
-  "comentario": string (Explicación breve del setup)
+  "patron_detectado": string (Se específico: ej. "Bandera Alcista en Consolidación", "Doble Techo con Falsa Rotura"),
+  "indicadores_clave": string[] (ej. ["Absorción en soporte", "Contracción de volumen previa a expansión"]),
+  "comentario": string (Justificación rápida de por qué tomaste este sesgo direccional)
 }
-
-Reglas:
-- Si no hay datos reales provistos, estima basado en la escala del eje Y de la imagen.
-- NO INVENTES PRECIOS LEJANOS AL ACTUAL si la imagen es reciente.
-- IMPORTANTE: Si es un rango lateral claro, marca "NEUTRO".
 `
               },
               {
