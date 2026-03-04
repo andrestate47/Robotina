@@ -434,15 +434,15 @@ export function UploadArea() {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
-                      className="border border-yellow-500/30 bg-yellow-500/10 rounded-lg p-3"
+                      className="border border-yellow-500/50 bg-yellow-900/60 backdrop-blur-sm shadow-xl rounded-xl p-4 mb-2"
                     >
                       <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-6 h-6 text-yellow-400 shrink-0 mt-0.5 drop-shadow-md" />
                         <div>
-                          <h4 className="text-sm font-bold text-yellow-500 mb-1">
-                            {analysisResult.es_historico ? "⚠️ Modo Análisis Histórico" : "⚠️ Advertencia de Lógica"}
+                          <h4 className="text-base font-bold text-yellow-300 drop-shadow-sm mb-1">
+                            {analysisResult.es_historico ? "Modo Análisis Histórico" : "Advertencia de Lógica"}
                           </h4>
-                          <div className="text-xs text-yellow-200/80 space-y-1">
+                          <div className="text-sm font-medium text-yellow-50 space-y-1.5 leading-relaxed">
                             {analysisResult.es_historico && (
                               <p>El precio en la imagen difiere del mercado real. Se asume que es un backtest o gráfico antiguo.</p>
                             )}
