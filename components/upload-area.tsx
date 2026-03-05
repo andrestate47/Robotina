@@ -720,12 +720,16 @@ export function UploadArea() {
                         <button
                           onClick={() => {
                             setUserVote("up")
-                            fetch("/api/save-feedback", {
+                            fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
                               method: "POST",
+                              mode: "no-cors",
+                              headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
-                                vote: "up",
-                                symbol: analysisResult?.datos_mercado?.symbol,
-                                priceResult: analysisResult?.entrada
+                                date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }),
+                                vote: "UP",
+                                symbol: analysisResult?.datos_mercado?.symbol || "N/A",
+                                price: analysisResult?.entrada || "N/A",
+                                comment: "Voto Directo Web"
                               })
                             })
                           }}
@@ -737,12 +741,16 @@ export function UploadArea() {
                         <button
                           onClick={() => {
                             setUserVote("down")
-                            fetch("/api/save-feedback", {
+                            fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
                               method: "POST",
+                              mode: "no-cors",
+                              headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
-                                vote: "down",
-                                symbol: analysisResult?.datos_mercado?.symbol,
-                                priceResult: analysisResult?.entrada
+                                date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }),
+                                vote: "DOWN",
+                                symbol: analysisResult?.datos_mercado?.symbol || "N/A",
+                                price: analysisResult?.entrada || "N/A",
+                                comment: "Voto Directo Web"
                               })
                             })
                           }}

@@ -45,6 +45,7 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
 
     let result: MarketData | null = null;
     const isCrypto = ["BTC", "ETH", "SOL", "XRP", "ADA", "BNB", "DOGE", "LTC"].includes(cleanSymbol) || cleanSymbol.includes("-USD") || cleanSymbol.includes("USDT");
+    const isIndex = ["NDX", "NASDAQ100", "NAS100", "US100", "SPX", "SP500", "US500", "S&P 500", "S&P500", "DJI", "DOW", "US30", "US 30", "VIX", "^DJI", "^GSPC", "^NDX", "^VIX", "IBEX35", "IBEX 35", "DAX", "UK100"].includes(cleanSymbol);
 
     // --- ESTRATEGIA CRYPTO (Prioridad Velocidad/Real-time) ---
     if (isCrypto) {
@@ -65,7 +66,38 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
         }
     }
 
-    // --- ESTRATEGIA STOCKS / FOREX / INDICES (Prioridad Datos PRO) ---
+    // --- ESTRATEGIA ÍNDICES (Prioridad Yahoo para evitar precios de ETF) ---
+    else if (isIndex) {
+        try {
+            let yahooSymbol = cleanSymbol;
+            if (["NDX", "NASDAQ100", "NAS100", "US100"].includes(cleanSymbol)) yahooSymbol = "^NDX";
+            else if (["SPX", "SP500", "US500", "S&P 500", "S&P500"].includes(cleanSymbol)) yahooSymbol = "^GSPC";
+            else if (["DJI", "DOW", "US30", "US 30", "^DJI"].includes(cleanSymbol)) yahooSymbol = "^DJI";
+            else if (["VIX", "^VIX"].includes(cleanSymbol)) yahooSymbol = "^VIX";
+            else if (["IBEX35", "IBEX 35"].includes(cleanSymbol)) yahooSymbol = "^IBEX";
+            else if (cleanSymbol === "DAX") yahooSymbol = "^GDAXI";
+            else if (cleanSymbol === "UK100") yahooSymbol = "^FTSE";
+
+            console.log(`📡 Intentando Yahoo (Prioridad #1 Índices) para: ${yahooSymbol}...`);
+            const stockData = await fetchStockData(yahooSymbol);
+            if (stockData) result = stockData;
+        } catch (e) {
+            console.error("❌ Yahoo Finance fallback error:", e);
+        }
+
+        // 2. Polygon (Backup - devolverá precios de ETF como DIA, QQQ, SPY)
+        if (!result) {
+            try {
+                const polygonData = await fetchPolygonData(cleanSymbol);
+                if (polygonData) {
+                    result = polygonData;
+                    result.symbol = result.symbol + " (ETF)"; // Avisamos al frontend
+                }
+            } catch (e) { console.error("❌ Polygon Indices error:", e); }
+        }
+    }
+
+    // --- ESTRATEGIA STOCKS / FOREX (Prioridad Datos PRO) ---
     else {
         // 1. Polygon PRO (Máxima precisión al segundo)
         try {
@@ -80,10 +112,7 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
         if (!result) {
             try {
                 let yahooSymbol = cleanSymbol;
-                if (cleanSymbol === "NDX" || cleanSymbol === "NASDAQ100") yahooSymbol = "^NDX";
-                else if (cleanSymbol === "SPX") yahooSymbol = "^GSPC";
-                else if (cleanSymbol === "DJI") yahooSymbol = "^DJI";
-                else if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
+                if (cleanSymbol === "EURUSD") yahooSymbol = "EURUSD=X";
                 else if (cleanSymbol === "GBPUSD") yahooSymbol = "GBPUSD=X";
                 else if (cleanSymbol === "USDJPY") yahooSymbol = "JPY=X";
                 else if (["XAU", "GOLD", "ORO", "XAUUSD"].includes(cleanSymbol)) yahooSymbol = "GC=F";
