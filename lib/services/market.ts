@@ -24,7 +24,13 @@ const MARKET_CACHE = new Map<string, { data: MarketData, timestamp: number }>();
 const CACHE_TTL_MS = 60 * 1000; // 60 segundos de vida para el dato
 
 export async function getMarketData(symbol: string): Promise<MarketData | null> {
-    const cleanSymbol = symbol.toUpperCase().trim();
+    let cleanSymbol = symbol.toUpperCase().trim();
+
+    // Normalizar Forex con slash (ej. AUD/CAD -> AUDCAD)
+    if (cleanSymbol.length === 7 && cleanSymbol.includes("/")) {
+        cleanSymbol = cleanSymbol.replace("/", "");
+    }
+
     if (!cleanSymbol) return null;
 
     // 1. ⚡ REVISAR CACHÉ PRIMERO
@@ -119,6 +125,7 @@ export async function getMarketData(symbol: string): Promise<MarketData | null> 
                 else if (["XAG", "SILVER", "PLATA", "XAGUSD"].includes(cleanSymbol)) yahooSymbol = "SI=F";
                 else if (["OIL", "WTI", "USOIL"].includes(cleanSymbol)) yahooSymbol = "CL=F";
                 else if (["BRENT", "UKOIL"].includes(cleanSymbol)) yahooSymbol = "BZ=F";
+                else if (cleanSymbol.length === 6 && !yahooSymbol.includes("=") && /^[A-Z]+$/.test(cleanSymbol)) yahooSymbol = `${cleanSymbol}=X`; // Fallback genérico para Forex como AUDCAD
 
                 console.log(`📡 Intentando Yahoo (Backup #2) para: ${yahooSymbol}...`);
                 const stockData = await fetchStockData(yahooSymbol);
