@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface AnalysisResult {
   rendimiento?: string
@@ -36,6 +36,31 @@ interface AnalysisResult {
   }
   es_historico?: boolean
   warnings?: string[]
+}
+
+const getCurrencySymbol = (sym: string | undefined): string => {
+  if (!sym) return "$";
+  const s = sym.toUpperCase();
+  if (s.includes(".MC") || s.includes("EUR") || s.includes("IBEX") || s.includes("DAX") || s.includes("GER40") || s.includes(".MA")) return "€";
+  if (s.includes("GBP") || s.includes("FTSE") || s.includes("UK100") || s.includes(".L")) return "£";
+  if (s.includes("JPY")) return "¥";
+  return "$";
+}
+
+const formatPrice = (price: number | string | undefined, symbol?: string): string => {
+  if (price === undefined || price === null || isNaN(Number(price))) return "N/A";
+  const numPrice = Number(price);
+  let decimals = 2;
+
+  if (numPrice < 5) decimals = 4;
+  else if (symbol && (symbol.toUpperCase().includes(".MC") || symbol.toUpperCase().includes("EUR") || symbol.toUpperCase().includes("IBEX") || symbol.toUpperCase().includes("DAX"))) {
+    decimals = 3;
+  }
+
+  return numPrice.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
 }
 
 const POPULAR_ASSETS = [
@@ -113,6 +138,8 @@ export function UploadArea() {
     }
   }, [])
 
+
+
   // 📋 Paste from clipboard
   React.useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -132,12 +159,43 @@ export function UploadArea() {
   }, [])
 
   // 🚀 Enviar imagen al backend
+  const saveToHistory = (parsed: any) => {
+    try {
+      const historyRaw = localStorage.getItem("analysisHistory")
+      let history = historyRaw ? JSON.parse(historyRaw) : []
+      // Insertar al inicio y mantener máximo 4
+      history.unshift({
+        ...parsed,
+        timestamp: Date.now()
+      })
+      if (history.length > 4) history = history.slice(0, 4)
+      localStorage.setItem("analysisHistory", JSON.stringify(history))
+
+      // Incrementar contador global
+      const currentCount = localStorage.getItem("analysisCount")
+      const newCount = currentCount ? parseInt(currentCount) + 1 : 1
+      localStorage.setItem("analysisCount", newCount.toString())
+
+      // Guardar ratio de LONG / SHORT para métricas reales
+      if (parsed.tipo_analisis === "LONG") {
+        const longs = localStorage.getItem("analysisLongs")
+        localStorage.setItem("analysisLongs", longs ? (parseInt(longs) + 1).toString() : "1")
+      } else if (parsed.tipo_analisis === "SHORT") {
+        const shorts = localStorage.getItem("analysisShorts")
+        localStorage.setItem("analysisShorts", shorts ? (parseInt(shorts) + 1).toString() : "1")
+      }
+    } catch (e) {
+      console.warn("No se pudo guardar historial")
+    }
+  }
+
   const handleAnalyze = async () => {
     if (!uploadedImage) return
     setIsAnalyzing(true)
     setStatusMessage(null)
     setAnalysisResult(null)
     setUserVote(null) // Resetear voto para el nuevo análisis
+    localStorage.removeItem("lastAnalysisVote")
 
     try {
       const response = await fetch("/api/analyze-image", {
@@ -174,10 +232,24 @@ export function UploadArea() {
       else if (parsed.comentario) {
         setStatusMessage(`⚠️ ${parsed.comentario}`)
         setAnalysisResult(parsed)
+        try {
+          localStorage.setItem("lastAnalysisResult", JSON.stringify(parsed))
+          saveToHistory(parsed)
+          window.dispatchEvent(new Event("newAnalysisSaved"))
+        } catch (e) {
+          console.warn("No se pudo guardar en el caché local.")
+        }
       }
       else {
         setStatusMessage("✅ Análisis completado con éxito.")
         setAnalysisResult(parsed)
+        try {
+          localStorage.setItem("lastAnalysisResult", JSON.stringify(parsed))
+          saveToHistory(parsed)
+          window.dispatchEvent(new Event("newAnalysisSaved"))
+        } catch (e) {
+          console.warn("No se pudo guardar en el caché local.")
+        }
       }
 
     } catch (error) {
@@ -192,6 +264,7 @@ export function UploadArea() {
     setUploadedImage(null)
     setAnalysisResult(null)
     setStatusMessage(null)
+    // No borramos de localStorage para que 'Último Análisis' sobreviva (Petición del usuario)
   }
 
   const handleSelectClick = () => fileInputRef.current?.click()
@@ -358,423 +431,434 @@ export function UploadArea() {
             uploadedImage ? "p-3 sm:p-4" : "p-6 sm:p-8 md:p-12"
           )}
         >
-          {!uploadedImage ? (
-            // 🟢 Estado inicial
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Upload className="w-10 h-10 text-primary" />
-              </div>
-              <h3 className="text-2xl font-semibold text-foreground mb-3">Sube tu captura de inversión</h3>
-              <p className="text-base text-muted-orange mb-6 max-w-md mx-auto">
-                Arrastra una imagen o haz clic para seleccionarla
-              </p>
-              <Button size="lg" onClick={handleSelectClick}>
-                <ImageIcon className="w-5 h-5 mr-2" /> Seleccionar imagen
-              </Button>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} />
-              <p className="text-xs text-primary mt-4">Formatos soportados: JPG, PNG, WebP (máx. 10MB)</p>
-            </div>
-          ) : (
-            // 🟠 Imagen subida
-            <div className="space-y-4">
-              <div className="relative rounded-xl overflow-hidden bg-muted">
-                <img
-                  src={uploadedImage}
-                  alt="Captura de inversión"
-                  className="w-full h-auto max-h-[500px] object-contain transition-opacity duration-500"
-                />
-                <button
-                  onClick={handleRemove}
-                  className="absolute top-3 right-3 w-10 h-10 rounded-full bg-destructive/90 hover:bg-destructive text-destructive-foreground flex items-center justify-center transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex justify-center">
-                <Button
-                  size="lg"
-                  onClick={handleAnalyze}
-                  disabled={isAnalyzing}
-                  className="w-full sm:w-auto sm:min-w-[200px]"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
-                      Analizando...
-                    </>
-                  ) : (
-                    <>
-                      <BarChart3 className="w-5 h-5 mr-2" /> Analizar inversión
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* 📡 Estado del análisis */}
-
-
-              {/* 📡 Estado del análisis */}
-              {statusMessage && !analysisResult && (
-                <div className="mt-4 p-3 rounded-lg bg-card/60 border border-white/10 text-center animate-in fade-in slide-in-from-bottom-2">
-                  <p className="text-sm font-medium text-white/80">{statusMessage}</p>
+          <AnimatePresence mode="wait">
+            {!uploadedImage ? (
+              // 🟢 Estado inicial
+              <motion.div
+                key="upload"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="text-center"
+              >
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                  <Upload className="w-10 h-10 text-primary" />
                 </div>
-              )}
+                <h3 className="text-2xl font-semibold text-foreground mb-3">Sube tu captura de inversión</h3>
+                <p className="text-base text-muted-orange mb-6 max-w-md mx-auto">
+                  Arrastra una imagen o haz clic para seleccionarla
+                </p>
+                <Button size="lg" onClick={handleSelectClick}>
+                  <ImageIcon className="w-5 h-5 mr-2" /> Seleccionar imagen
+                </Button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} />
+                <p className="text-xs text-primary mt-4">Formatos soportados: JPG, PNG, WebP (máx. 10MB)</p>
+              </motion.div>
+            ) : (
+              // 🟠 Imagen subida
+              <motion.div
+                key="preview"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className="relative rounded-xl overflow-hidden bg-muted">
+                  <img
+                    src={uploadedImage || undefined}
+                    alt="Captura de inversión"
+                    className="w-full h-auto max-h-[500px] object-contain transition-opacity duration-500"
+                  />
+                  <button
+                    onClick={handleRemove}
+                    className="absolute top-3 right-3 w-10 h-10 rounded-full bg-destructive/90 hover:bg-destructive text-destructive-foreground flex items-center justify-center transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-              {/* 🟢 Resultados */}
-              {analysisResult && !analysisResult.error && (
-                <motion.div
-                  className="mt-4 p-4 rounded-lg bg-muted/40 border border-border space-y-5"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  {/* 🚨 ALERTAS DEL SISTEMA (Validación Lógica) */}
-                  {(analysisResult.es_historico || (analysisResult.warnings && analysisResult.warnings.length > 0)) && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="border border-yellow-500/50 bg-yellow-900/60 backdrop-blur-sm shadow-xl rounded-xl p-4 mb-2"
-                    >
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-6 h-6 text-yellow-400 shrink-0 mt-0.5 drop-shadow-md" />
-                        <div>
-                          <h4 className="text-base font-bold text-yellow-300 drop-shadow-sm mb-1">
-                            {analysisResult.es_historico ? "Modo Análisis Histórico" : "Advertencia de Lógica"}
-                          </h4>
-                          <div className="text-sm font-medium text-yellow-50 space-y-1.5 leading-relaxed">
-                            {analysisResult.es_historico && (
-                              <p>El precio en la imagen difiere del mercado real. Se asume que es un backtest o gráfico antiguo.</p>
-                            )}
-                            {analysisResult.warnings?.map((w, idx) => (
-                              <p key={idx}>• {w}</p>
-                            ))}
+                <div className="flex justify-center">
+                  <Button
+                    size="lg"
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="w-full sm:w-auto sm:min-w-[200px]"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
+                        Analizando...
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="w-5 h-5 mr-2" /> Analizar inversión
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* 📡 Estado del análisis */}
+
+
+                {/* 📡 Estado del análisis */}
+                {statusMessage && !analysisResult && (
+                  <div className="mt-4 p-3 rounded-lg bg-card/60 border border-white/10 text-center animate-in fade-in slide-in-from-bottom-2">
+                    <p className="text-sm font-medium text-white/80">{statusMessage}</p>
+                  </div>
+                )}
+
+                {/* 🟢 Resultados */}
+                {analysisResult && !analysisResult.error && (
+                  <motion.div
+                    className="mt-4 p-4 rounded-lg bg-muted/40 border border-border space-y-5"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    {/* 🚨 ALERTAS DEL SISTEMA (Validación Lógica) */}
+                    {(analysisResult.es_historico || (analysisResult.warnings && analysisResult.warnings.length > 0)) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="border border-yellow-500/50 bg-yellow-900/60 backdrop-blur-sm shadow-xl rounded-xl p-4 mb-2"
+                      >
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-6 h-6 text-yellow-400 shrink-0 mt-0.5 drop-shadow-md" />
+                          <div>
+                            <h4 className="text-base font-bold text-yellow-300 drop-shadow-sm mb-1">
+                              {analysisResult.es_historico ? "Modo Análisis Histórico" : "Advertencia de Lógica"}
+                            </h4>
+                            <div className="text-sm font-medium text-yellow-50 space-y-1.5 leading-relaxed">
+                              {analysisResult.es_historico && (
+                                <p>El precio en la imagen difiere del mercado real. Se asume que es un backtest o gráfico antiguo.</p>
+                              )}
+                              {analysisResult.warnings?.map((w, idx) => (
+                                <p key={idx}>• {w}</p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                      <motion.div
+                        whileInView={{
+                          rotate: [0, -15, 10, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          repeatDelay: 3,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        <Search className="w-5 h-5 text-primary" />
+                      </motion.div>
+                      Lector de Gráficas
+                      {analysisResult.datos_mercado && (
+                        <span className={cn(
+                          "text-[10px] font-bold border px-2 py-0.5 rounded-full flex items-center gap-1",
+                          analysisResult.datos_mercado.source === "Polygon"
+                            ? "bg-indigo-900/40 text-indigo-400 border-indigo-500/50"
+                            : "bg-blue-900/30 text-blue-400 border-blue-800/50"
+                        )}>
+                          <span className="relative flex h-2 w-2">
+                            <span className={cn(
+                              "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                              analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-400" : "bg-blue-400"
+                            )}></span>
+                            <span className={cn(
+                              "relative inline-flex rounded-full h-2 w-2",
+                              analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-500" : "bg-blue-500"
+                            )}></span>
+                          </span>
+                          En Vivo • {analysisResult.datos_mercado.source === "Polygon" ? "Polygon PRO" : analysisResult.datos_mercado.source}
+                        </span>
+                      )}
+                    </h3>
+
+                    {/* 📊 Datos de Mercado en Tiempo Real (Si existen) */}
+                    {analysisResult.datos_mercado && (
+                      <div className="bg-[#0f172a] border border-blue-500/20 rounded-lg p-3 flex items-center justify-between shadow-sm z-20 relative">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                            <Coins className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                              {analysisResult.datos_mercado.symbol}
+                            </p>
+                            <p className="text-lg font-bold text-white leading-none">
+                              {getCurrencySymbol(analysisResult.datos_mercado.symbol)}{formatPrice(analysisResult.datos_mercado.price, analysisResult.datos_mercado.symbol)}
+                            </p>
+                            <p className="text-[9px] text-white/40 mt-1">
+                              Actualizado: {new Date().toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-[100px]">
+                          <span className="text-[10px] text-white/50 font-normal mb-1 uppercase tracking-wider">Rango Día ({getCurrencySymbol(analysisResult.datos_mercado.symbol)})</span>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-green-400 text-xs flex items-center gap-1">
+                              <span className="text-[9px] opacity-70">H:</span>
+                              {analysisResult.datos_mercado.high24h
+                                ? formatPrice(analysisResult.datos_mercado.high24h, analysisResult.datos_mercado.symbol)
+                                : "N/A"}
+                            </span>
+                            <span className="text-red-400 text-xs flex items-center gap-1">
+                              <span className="text-[9px] opacity-70">L:</span>
+                              {analysisResult.datos_mercado.low24h
+                                ? formatPrice(analysisResult.datos_mercado.low24h, analysisResult.datos_mercado.symbol)
+                                : "N/A"}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-
-                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <motion.div
-                      whileInView={{
-                        rotate: [0, -15, 10, -5, 0],
-                        scale: [1, 1.1, 1]
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        repeatDelay: 3,
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <Search className="w-5 h-5 text-primary" />
-                    </motion.div>
-                    Lector de Gráficas
-                    {analysisResult.datos_mercado && (
-                      <span className={cn(
-                        "text-[10px] font-bold border px-2 py-0.5 rounded-full flex items-center gap-1",
-                        analysisResult.datos_mercado.source === "Polygon"
-                          ? "bg-indigo-900/40 text-indigo-400 border-indigo-500/50"
-                          : "bg-blue-900/30 text-blue-400 border-blue-800/50"
-                      )}>
-                        <span className="relative flex h-2 w-2">
-                          <span className={cn(
-                            "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                            analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-400" : "bg-blue-400"
-                          )}></span>
-                          <span className={cn(
-                            "relative inline-flex rounded-full h-2 w-2",
-                            analysisResult.datos_mercado.source === "Polygon" ? "bg-indigo-500" : "bg-blue-500"
-                          )}></span>
-                        </span>
-                        En Vivo • {analysisResult.datos_mercado.source === "Polygon" ? "Polygon PRO" : analysisResult.datos_mercado.source}
-                      </span>
                     )}
-                  </h3>
 
-                  {/* 📊 Datos de Mercado en Tiempo Real (Si existen) */}
-                  {analysisResult.datos_mercado && (
-                    <div className="bg-[#0f172a] border border-blue-500/20 rounded-lg p-3 flex items-center justify-between shadow-sm z-20 relative">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                          <Coins className="w-5 h-5 text-blue-400" />
+                    {/* Fila 1: Patrón y (Tipo + Confianza) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {/* Patrón detectado */}
+                      <div className="bg-card/60 border p-2 rounded-lg flex flex-col justify-center">
+                        <p className="text-xs text-muted-foreground">📉 Patrón detectado</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {analysisResult.patron_detectado || "—"}
+                        </p>
+                      </div>
+
+                      {/* Tipo de análisis y confianza */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-card/60 border p-2 rounded-lg text-center flex flex-col items-center justify-center">
+                          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 justify-center">
+                            {analysisResult.tipo_analisis === "LONG" ? (
+                              <motion.span
+                                animate={{ y: [0, -3, 0], scale: [1, 1.1, 1] }}
+                                transition={{ duration: 3, ease: "easeInOut" }}
+                                className="text-base inline-block"
+                              >
+                                🐂
+                              </motion.span>
+                            ) : analysisResult.tipo_analisis === "SHORT" ? (
+                              <motion.span
+                                animate={{ y: [0, 3, 0], scale: [1, 1.1, 1] }}
+                                transition={{ duration: 3, ease: "easeInOut" }}
+                                className="text-base inline-block"
+                              >
+                                🐻
+                              </motion.span>
+                            ) : (
+                              "📊"
+                            )}
+                            Tipo
+                          </p>
+                          <p
+                            className={cn(
+                              "text-sm font-semibold",
+                              analysisResult.tipo_analisis === "LONG"
+                                ? "text-green-600"
+                                : analysisResult.tipo_analisis === "SHORT"
+                                  ? "text-red-600"
+                                  : "text-foreground"
+                            )}
+                          >
+                            {analysisResult.tipo_analisis || "—"}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-                            {analysisResult.datos_mercado.symbol}
-                          </p>
-                          <p className="text-lg font-bold text-white leading-none">
-                            ${analysisResult.datos_mercado.price.toLocaleString("en-US", {
-                              minimumFractionDigits: analysisResult.datos_mercado.price < 5 ? 4 : 2,
-                              maximumFractionDigits: analysisResult.datos_mercado.price < 5 ? 4 : 2
-                            })}
-                          </p>
-                          <p className="text-[9px] text-white/40 mt-1">
-                            Actualizado: {new Date().toLocaleTimeString()}
+
+                        <div className="bg-card/60 border p-2 rounded-lg text-center">
+                          <p className="text-xs text-muted-foreground mb-1">🎯 Confianza</p>
+                          <p
+                            className={cn(
+                              "text-sm font-semibold",
+                              analysisResult.confianza === "Alta"
+                                ? "text-green-600"
+                                : analysisResult.confianza === "Media"
+                                  ? "text-yellow-600"
+                                  : "text-red-600"
+                            )}
+                          >
+                            {analysisResult.confianza || "—"}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-[100px]">
-                        <span className="text-[10px] text-white/50 font-normal mb-1 uppercase tracking-wider">Rango Día ($)</span>
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-green-400 text-xs flex items-center gap-1">
-                            <span className="text-[9px] opacity-70">H:</span>
-                            {analysisResult.datos_mercado.high24h
-                              ? analysisResult.datos_mercado.high24h.toLocaleString("en-US", {
-                                minimumFractionDigits: analysisResult.datos_mercado.high24h < 5 ? 4 : 2,
-                                maximumFractionDigits: analysisResult.datos_mercado.high24h < 5 ? 4 : 2
-                              })
-                              : "N/A"}
-                          </span>
-                          <span className="text-red-400 text-xs flex items-center gap-1">
-                            <span className="text-[9px] opacity-70">L:</span>
-                            {analysisResult.datos_mercado.low24h
-                              ? analysisResult.datos_mercado.low24h.toLocaleString("en-US", {
-                                minimumFractionDigits: analysisResult.datos_mercado.low24h < 5 ? 4 : 2,
-                                maximumFractionDigits: analysisResult.datos_mercado.low24h < 5 ? 4 : 2
-                              })
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fila 1: Patrón y (Tipo + Confianza) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {/* Patrón detectado */}
-                    <div className="bg-card/60 border p-2 rounded-lg flex flex-col justify-center">
-                      <p className="text-xs text-muted-foreground">📉 Patrón detectado</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {analysisResult.patron_detectado || "—"}
-                      </p>
                     </div>
 
-                    {/* Tipo de análisis y confianza */}
+                    {/* Entrada / TP */}
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-card/60 border p-2 rounded-lg text-center flex flex-col items-center justify-center">
-                        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 justify-center">
-                          {analysisResult.tipo_analisis === "LONG" ? (
-                            <motion.span
-                              animate={{ y: [0, -3, 0], scale: [1, 1.1, 1] }}
-                              transition={{ duration: 3, ease: "easeInOut" }}
-                              className="text-base inline-block"
-                            >
-                              🐂
-                            </motion.span>
-                          ) : analysisResult.tipo_analisis === "SHORT" ? (
-                            <motion.span
-                              animate={{ y: [0, 3, 0], scale: [1, 1.1, 1] }}
-                              transition={{ duration: 3, ease: "easeInOut" }}
-                              className="text-base inline-block"
-                            >
-                              🐻
-                            </motion.span>
-                          ) : (
-                            "📊"
-                          )}
-                          Tipo
-                        </p>
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            analysisResult.tipo_analisis === "LONG"
-                              ? "text-green-600"
-                              : analysisResult.tipo_analisis === "SHORT"
-                                ? "text-red-600"
-                                : "text-foreground"
-                          )}
-                        >
-                          {analysisResult.tipo_analisis || "—"}
+                      <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
+                        <p className="text-xs font-medium">🎯 Entrada</p>
+                        <p className="text-sm font-bold flex items-baseline justify-center">
+                          {analysisResult.entrada ? (
+                            <>
+                              <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-blue-900/60 uppercase">
+                                {getCurrencySymbol(analysisResult.datos_mercado?.symbol)}
+                              </span>
+                              {formatPrice(analysisResult.entrada, analysisResult.datos_mercado?.symbol)}
+                            </>
+                          ) : "N/A"}
                         </p>
                       </div>
-
-                      <div className="bg-card/60 border p-2 rounded-lg text-center">
-                        <p className="text-xs text-muted-foreground mb-1">🎯 Confianza</p>
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            analysisResult.confianza === "Alta"
-                              ? "text-green-600"
-                              : analysisResult.confianza === "Media"
-                                ? "text-yellow-600"
-                                : "text-red-600"
-                          )}
-                        >
-                          {analysisResult.confianza || "—"}
-                        </p>
+                      {/* TP Container Loop */}
+                      <div className="flex flex-col gap-1">
+                        <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
+                          <p className="text-[10px] font-medium">TP 1</p>
+                          <p className="text-xs font-bold flex items-baseline">
+                            {analysisResult.entrada && analysisResult.salida ? (
+                              <>
+                                <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
+                                  {getCurrencySymbol(analysisResult.datos_mercado?.symbol)}
+                                </span>
+                                {formatPrice(Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2, analysisResult.datos_mercado?.symbol)}
+                              </>
+                            ) : "N/A"}
+                          </p>
+                        </div>
+                        <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
+                          <p className="text-[10px] font-medium">TP 2</p>
+                          <p className="text-xs font-bold flex items-baseline">
+                            {analysisResult.salida ? (
+                              <>
+                                <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
+                                  {getCurrencySymbol(analysisResult.datos_mercado?.symbol)}
+                                </span>
+                                {formatPrice(analysisResult.salida, analysisResult.datos_mercado?.symbol)}
+                              </>
+                            ) : "N/A"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Entrada / TP */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-blue-50 text-blue-800 rounded-lg p-2 text-center shadow-sm flex flex-col justify-center aura-entry">
-                      <p className="text-xs font-medium">🎯 Entrada</p>
+                    {/* Stop Loss */}
+                    <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
+                      <p className="text-xs font-medium">🛑 Stop Loss</p>
                       <p className="text-sm font-bold flex items-baseline justify-center">
-                        {analysisResult.entrada ? (
+                        {analysisResult.stop_loss ? (
                           <>
-                            <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-blue-900/60 uppercase">
-                              {analysisResult.datos_mercado?.symbol || "$"}
+                            <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-red-900/60 uppercase">
+                              {getCurrencySymbol(analysisResult.datos_mercado?.symbol)}
                             </span>
-                            {Number(analysisResult.entrada).toLocaleString("en-US", {
-                              minimumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2,
-                              maximumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2
-                            })}
+                            {formatPrice(analysisResult.stop_loss, analysisResult.datos_mercado?.symbol)}
                           </>
                         ) : "N/A"}
                       </p>
                     </div>
-                    {/* TP Container Loop */}
-                    <div className="flex flex-col gap-1">
-                      <div className="bg-green-50/80 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
-                        <p className="text-[10px] font-medium">TP 1</p>
-                        <p className="text-xs font-bold flex items-baseline">
-                          {analysisResult.entrada && analysisResult.salida ? (
-                            <>
-                              <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
-                                {analysisResult.datos_mercado?.symbol || "$"}
-                              </span>
-                              {((Number(analysisResult.entrada) + (Number(analysisResult.salida) - Number(analysisResult.entrada)) / 2)).toLocaleString("en-US", {
-                                minimumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2,
-                                maximumFractionDigits: Number(analysisResult.entrada) < 5 ? 4 : 2
-                              })}
-                            </>
-                          ) : "N/A"}
-                        </p>
-                      </div>
-                      <div className="bg-green-50 text-green-800 rounded-lg p-1.5 text-center shadow-sm flex items-center justify-between px-3 aura-tp">
-                        <p className="text-[10px] font-medium">TP 2</p>
-                        <p className="text-xs font-bold flex items-baseline">
-                          {analysisResult.salida ? (
-                            <>
-                              <span className="text-[0.7em] opacity-70 mr-1 font-semibold text-green-900/60 uppercase">
-                                {analysisResult.datos_mercado?.symbol || "$"}
-                              </span>
-                              {Number(analysisResult.salida).toLocaleString("en-US", {
-                                minimumFractionDigits: Number(analysisResult.salida) < 5 ? 4 : 2,
-                                maximumFractionDigits: Number(analysisResult.salida) < 5 ? 4 : 2
-                              })}
-                            </>
-                          ) : "N/A"}
-                        </p>
+
+                    {/* Indicadores clave */}
+                    <div className="bg-card border p-2 rounded-lg space-y-2">
+                      <p className="text-xs text-muted-foreground">🧩 Indicadores clave</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(analysisResult.indicadores_clave) &&
+                          analysisResult.indicadores_clave.length > 0 ? (
+                          analysisResult.indicadores_clave.map((ind, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
+                            >
+                              {ind}
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-sm">Sin indicadores detectados</p>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Stop Loss */}
-                  <div className="bg-red-50 text-red-800 rounded-lg p-2 text-center shadow-sm aura-sl">
-                    <p className="text-xs font-medium">🛑 Stop Loss</p>
-                    <p className="text-sm font-bold flex items-baseline justify-center">
-                      {analysisResult.stop_loss ? (
-                        <>
-                          <span className="text-[0.65em] opacity-70 mr-1 font-semibold text-red-900/60 uppercase">
-                            {analysisResult.datos_mercado?.symbol || "$"}
-                          </span>
-                          {Number(analysisResult.stop_loss).toLocaleString("en-US", {
-                            minimumFractionDigits: Number(analysisResult.stop_loss) < 5 ? 4 : 2,
-                            maximumFractionDigits: Number(analysisResult.stop_loss) < 5 ? 4 : 2
-                          })}
-                        </>
-                      ) : "N/A"}
-                    </p>
-                  </div>
-
-                  {/* Indicadores clave */}
-                  <div className="bg-card border p-2 rounded-lg space-y-2">
-                    <p className="text-xs text-muted-foreground">🧩 Indicadores clave</p>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.isArray(analysisResult.indicadores_clave) &&
-                        analysisResult.indicadores_clave.length > 0 ? (
-                        analysisResult.indicadores_clave.map((ind, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
-                          >
-                            {ind}
-                          </span>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground text-sm">Sin indicadores detectados</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Comentario */}
-                  {analysisResult.comentario && (
-                    <div className="border border-white/10 bg-slate-950/60 p-3 rounded-xl shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-1 h-4 bg-amber-400 rounded-full"></div>
-                        <p className="text-xs font-bold text-amber-400 uppercase tracking-wide">Comentario del Analista</p>
+                    {/* Comentario */}
+                    {analysisResult.comentario && (
+                      <div className="border border-white/10 bg-slate-950/60 p-3 rounded-xl shadow-inner">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1 h-4 bg-amber-400 rounded-full"></div>
+                          <p className="text-xs font-bold text-amber-400 uppercase tracking-wide">Comentario del Analista</p>
+                        </div>
+                        <p className="text-sm text-gray-200 leading-relaxed font-light tracking-wide">{analysisResult.comentario}</p>
                       </div>
-                      <p className="text-sm text-gray-200 leading-relaxed font-light tracking-wide">{analysisResult.comentario}</p>
-                    </div>
-                  )}
-
-                  {/* Feedback: Votación del Usuario */}
-                  <div className="flex justify-end pt-3 border-t border-white/5 mt-4">
-                    {!userVote ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground/60 mr-1">¿Te resultó útil?</span>
-                        <button
-                          onClick={() => {
-                            setUserVote("up")
-                            fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
-                              method: "POST",
-                              mode: "no-cors",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }),
-                                vote: "UP",
-                                symbol: analysisResult?.datos_mercado?.symbol || "N/A",
-                                price: analysisResult?.entrada || "N/A",
-                                comment: "Voto Directo Web"
-                              })
-                            })
-                          }}
-                          className="p-1.5 hover:bg-green-500/10 hover:text-green-400 text-muted-foreground rounded-md transition-all group"
-                          title="Buen análisis"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setUserVote("down")
-                            fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
-                              method: "POST",
-                              mode: "no-cors",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }),
-                                vote: "DOWN",
-                                symbol: analysisResult?.datos_mercado?.symbol || "N/A",
-                                price: analysisResult?.entrada || "N/A",
-                                comment: "Voto Directo Web"
-                              })
-                            })
-                          }}
-                          className="p-1.5 hover:bg-red-500/10 hover:text-red-400 text-muted-foreground rounded-md transition-all group"
-                          title="Mal análisis"
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        </button>
-                      </div>
-                    ) : (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-[10px] text-green-400 flex items-center gap-1.5 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20"
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>¡Gracias por tu feedback!</span>
-                      </motion.div>
                     )}
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          )}
+
+                    {/* Feedback: Votación del Usuario */}
+                    {/* Footer de Acciones (OK & Feedback) */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/5 mt-4">
+                      {/* Botón OK Centralizado/Principal */}
+                      <div className="flex-1 flex justify-center sm:justify-start w-full sm:w-auto">
+                        <button
+                          onClick={() => {
+                            setUploadedImage(null);
+                            setAnalysisResult(null);
+                            setStatusMessage(null);
+                            setUserVote(null);
+                            setSymbol("");
+                            // Forzamos "refresco" y dejar en cero sin borrar memoria del Right Widget
+                          }}
+                          className="w-full sm:w-auto px-8 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm tracking-wide rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_25px_rgba(168,85,247,0.5)] transition-all flex items-center justify-center gap-2 group"
+                        >
+                          OK, Cerrar Análisis
+                          <CheckCircle2 className="w-4 h-4 opacity-70 group-hover:opacity-100" />
+                        </button>
+                      </div>
+
+                      {/* Votación al extremo derecho */}
+                      <div className="flex items-center shrink-0">
+                        {!userVote ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground/60 mr-1">¿Te resultó útil?</span>
+                            <button
+                              onClick={() => {
+                                setUserVote("up")
+                                localStorage.setItem("lastAnalysisVote", "up")
+                                const currentUp = parseInt(localStorage.getItem("analysisUpvotes") || "0")
+                                localStorage.setItem("analysisUpvotes", (currentUp + 1).toString())
+                                window.dispatchEvent(new Event("newAnalysisSaved"))
+                                fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
+                                  method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "UP",
+                                    symbol: analysisResult?.datos_mercado?.symbol || "N/A", price: analysisResult?.entrada || "N/A", comment: "Voto Directo Web"
+                                  })
+                                })
+                              }}
+                              className="p-1.5 hover:bg-emerald-500/10 hover:text-emerald-400 text-muted-foreground rounded-md transition-all group"
+                              title="Buen análisis"
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setUserVote("down")
+                                localStorage.setItem("lastAnalysisVote", "down")
+                                const currentDown = parseInt(localStorage.getItem("analysisDownvotes") || "0")
+                                localStorage.setItem("analysisDownvotes", (currentDown + 1).toString())
+                                window.dispatchEvent(new Event("newAnalysisSaved"))
+                                fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
+                                  method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "DOWN",
+                                    symbol: analysisResult?.datos_mercado?.symbol || "N/A", price: analysisResult?.entrada || "N/A", comment: "Voto Directo Web"
+                                  })
+                                })
+                              }}
+                              className="p-1.5 hover:bg-red-500/10 hover:text-red-400 text-muted-foreground rounded-md transition-all group"
+                              title="Mal análisis"
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                            </button>
+                          </div>
+                        ) : (
+                          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-[10px] text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>¡Gracias por tu feedback!</span>
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
