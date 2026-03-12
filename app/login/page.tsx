@@ -163,8 +163,13 @@ export default function LoginPage() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 rounded-3xl blur-2xl opacity-50 z-0"></div>
 
                 <div className="relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 sm:p-8 shadow-2xl z-10 overflow-hidden">
-                    {/* Border Beam Magic UI Effect - HIDDEN ON MOBILE */}
-                    {!isMobile && <BorderBeam size={250} duration={12} delay={9} />}
+                    {/* Border Beam Magic UI Effect - Reactivado y optimizado para móviles */}
+                    <BorderBeam 
+                        size={isMobile ? 180 : 250} 
+                        duration={isMobile ? 25 : 12} 
+                        delay={9} 
+                        borderWidth={isMobile ? 1.2 : 1.5}
+                    />
 
                     {/* Subtle animated border top */}
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
