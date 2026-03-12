@@ -213,7 +213,7 @@ export default function LoginPage() {
                                     <Mail className="w-5 h-5" />
                                 </div>
                                 <input
-                                    type="email"
+                                    type="text"
                                     id="email-input"
                                     name="email"
                                     value={email}
