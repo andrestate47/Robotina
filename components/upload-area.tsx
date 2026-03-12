@@ -283,15 +283,12 @@ export function UploadArea() {
   return (
     <div className="max-w-4xl mx-auto relative overflow-hidden rounded-2xl border border-border shadow-lg">
 
-      {/* Fondo con imagen */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/bg-trading-v2.png')" }}
-      ></div>
-
-      {/* Overlay suave */}
-      {/* Overlay tipo cristal */}
-      <div className="absolute inset-0 bg-[#0B2239]/55 backdrop-blur-sm"></div>
+      {/* Nuevo Fondo Premium - Degradado Profundo con Efecto de Luz */}
+      <div className="absolute inset-0 bg-[#07070a]">
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10"></div>
+      </div>
 
       {/* Contenido principal */}
       <div className="relative z-10 p-6 sm:p-8 md:p-10">
@@ -426,8 +423,8 @@ export function UploadArea() {
           className={cn(
             "relative border-2 border-dashed rounded-2xl transition-all duration-300",
             isDragging
-              ? "border-primary bg-primary/5 scale-[1.02]"
-              : "border-border bg-card hover:border-primary/50 hover:bg-muted/30",
+              ? "border-primary bg-primary/10 scale-[1.02]"
+              : "border-white/10 bg-white/[0.03] hover:border-primary/50 hover:bg-white/[0.07]",
             uploadedImage ? "p-3 sm:p-4" : "p-6 sm:p-8 md:p-12"
           )}
         >
@@ -445,7 +442,9 @@ export function UploadArea() {
                 <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                   <Upload className="w-10 h-10 text-primary" />
                 </div>
-                <h3 className="text-2xl font-semibold text-foreground mb-3">Sube tu captura de inversión</h3>
+                <h3 className="text-2xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-blue-400 to-emerald-400">
+                  Sube tu captura de inversión
+                </h3>
                 <p className="text-base text-muted-orange mb-6 max-w-md mx-auto">
                   Arrastra una imagen o haz clic para seleccionarla
                 </p>
@@ -600,17 +599,17 @@ export function UploadArea() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-[100px]">
-                          <span className="text-[10px] text-white/50 font-normal mb-1 uppercase tracking-wider">Rango Día ({getCurrencySymbol(analysisResult.datos_mercado.symbol)})</span>
-                          <div className="flex flex-col items-end gap-0.5">
-                            <span className="text-green-400 text-xs flex items-center gap-1">
-                              <span className="text-[9px] opacity-70">H:</span>
+                        <div className="text-right px-2 sm:px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-sm font-bold flex flex-col items-end justify-center min-w-0 sm:min-w-[100px]">
+                          <span className="text-[9px] sm:text-[10px] text-white/50 font-normal mb-1 uppercase tracking-wider whitespace-nowrap">Rango Día ({getCurrencySymbol(analysisResult.datos_mercado.symbol)})</span>
+                          <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0.5">
+                            <span className="text-green-400 text-[10px] sm:text-xs flex items-center gap-1">
+                              <span className="text-[8px] sm:text-[9px] opacity-70">H:</span>
                               {analysisResult.datos_mercado.high24h
                                 ? formatPrice(analysisResult.datos_mercado.high24h, analysisResult.datos_mercado.symbol)
                                 : "N/A"}
                             </span>
-                            <span className="text-red-400 text-xs flex items-center gap-1">
-                              <span className="text-[9px] opacity-70">L:</span>
+                            <span className="text-red-400 text-[10px] sm:text-xs flex items-center gap-1">
+                              <span className="text-[8px] sm:text-[9px] opacity-70">L:</span>
                               {analysisResult.datos_mercado.low24h
                                 ? formatPrice(analysisResult.datos_mercado.low24h, analysisResult.datos_mercado.symbol)
                                 : "N/A"}
@@ -801,10 +800,10 @@ export function UploadArea() {
                       </div>
 
                       {/* Votación al extremo derecho */}
-                      <div className="flex items-center shrink-0">
+                      <div className="flex items-center shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
                         {!userVote ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground/60 mr-1">¿Te resultó útil?</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">¿Útil?</span>
                             <button
                               onClick={() => {
                                 setUserVote("up")
@@ -820,10 +819,10 @@ export function UploadArea() {
                                   })
                                 })
                               }}
-                              className="p-1.5 hover:bg-emerald-500/10 hover:text-emerald-400 text-muted-foreground rounded-md transition-all group"
+                              className="p-2 hover:bg-emerald-500/30 hover:text-emerald-400 text-white rounded-lg transition-all group shadow-md bg-white/10 border border-white/10"
                               title="Buen análisis"
                             >
-                              <ThumbsUp className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                              <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
                             <button
                               onClick={() => {
@@ -840,10 +839,10 @@ export function UploadArea() {
                                   })
                                 })
                               }}
-                              className="p-1.5 hover:bg-red-500/10 hover:text-red-400 text-muted-foreground rounded-md transition-all group"
+                              className="p-2 hover:bg-rose-500/30 hover:text-rose-400 text-white rounded-lg transition-all group shadow-md bg-white/10 border border-white/10"
                               title="Mal análisis"
                             >
-                              <ThumbsDown className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                              <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
                           </div>
                         ) : (

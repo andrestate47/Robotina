@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { UploadArea } from "@/components/upload-area"
 import { AnalysisResults } from "@/components/analysis-results"
 import { BorderBeam } from "@/components/magicui/border-beam"
@@ -26,7 +27,10 @@ import {
   Scan,
   ThumbsUp,
   ThumbsDown,
-  CheckCircle2
+  CheckCircle2,
+  CreditCard,
+  Star,
+  ArrowRight
 } from "lucide-react"
 
 // --- COMPONENTE LOGOS DE ACTIVOS PÚBLICOS ---
@@ -296,6 +300,10 @@ export default function Home() {
               <BarChart3 className="w-5 h-5 shrink-0" />
               {showSidebarText && <span>Métricas y Rendimiento</span>}
             </a>
+            <Link href="/pricing" className={`flex items-center gap-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
+              <CreditCard className="w-5 h-5 shrink-0" />
+              {showSidebarText && <span>Planes y Precios</span>}
+            </Link>
           </div>
         </div>
 
@@ -346,6 +354,11 @@ export default function Home() {
               <Headset className="w-4 h-4 shrink-0" />
               Contáctanos
             </a>
+
+            <Link href="/pricing" className="flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-sm font-bold text-white bg-purple-600/20 hover:bg-purple-600/30 px-3 py-1.5 rounded-full border border-purple-500/20 transition-all shadow-lg shadow-purple-900/10">
+              <CreditCard className="w-4 h-4 shrink-0 text-purple-400" />
+              Planes
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <button className="relative p-2 text-slate-400 hover:text-slate-200 transition-colors rounded-full hover:bg-white/5">
@@ -475,6 +488,19 @@ export default function Home() {
                   </motion.div>
                 </div>
 
+                {/* Llamado a la acción (CTA) debajo del Ticker */}
+                <div className="flex justify-center mt-6">
+                  <Link 
+                    href="/pricing"
+                    className="group relative flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-2xl hover:scale-[1.05] transition-all shadow-xl hover:shadow-purple-500/20"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+                    <Star className="w-4 h-4 text-purple-600 animate-pulse" />
+                    Ver Planes Premium
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+
               </div>
             </motion.div>
 
@@ -541,7 +567,7 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Sección Upload Amplia */}
-              <div className="lg:col-span-2 bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl relative">
+              <div className="lg:col-span-2 bg-[#09090d] border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
                 {/* Indicador de Status Neon */}
                 <div className="absolute top-0 right-0 p-6 flex opacity-50">
                   <div className="animate-pulse w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_purple]"></div>
@@ -612,9 +638,9 @@ export default function Home() {
                       </div>
 
                       {/* Votación al extremo derecho */}
-                      <div className="flex flex-col items-end justify-center shrink-0 ml-2">
+                      <div className="flex items-center shrink-0 ml-4 bg-white/5 p-1 rounded-xl border border-white/10 shadow-inner">
                         {!lastAnalysisVote ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -631,10 +657,10 @@ export default function Home() {
                                   })
                                 });
                               }}
-                              className="p-1.5 hover:bg-emerald-500/10 hover:text-emerald-400 text-slate-500 rounded-md transition-all group/up"
+                              className="p-2 hover:bg-emerald-500/20 hover:text-emerald-400 text-white rounded-lg transition-all"
                               title="Buen análisis"
                             >
-                              <ThumbsUp className="w-4 h-4 group-hover/up:scale-110 transition-transform" />
+                              <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
                             <button
                               onClick={(e) => {
@@ -652,15 +678,15 @@ export default function Home() {
                                   })
                                 });
                               }}
-                              className="p-1.5 hover:bg-rose-500/10 hover:text-rose-400 text-slate-500 rounded-md transition-all group/down"
+                              className="p-2 hover:bg-rose-500/20 hover:text-rose-400 text-white rounded-lg transition-all"
                               title="Mal análisis"
                             >
-                              <ThumbsDown className="w-4 h-4 group-hover/down:scale-110 transition-transform" />
+                              <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
                           </div>
                         ) : (
-                          <div className="text-emerald-400 flex items-center justify-center p-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20" title={`Has votado ${lastAnalysisVote.toUpperCase()}`}>
-                            <CheckCircle2 className="w-4 h-4" />
+                          <div className="text-emerald-400 flex items-center justify-center p-2 bg-emerald-500/10 rounded-full border border-emerald-500/20" title={`Has votado ${lastAnalysisVote.toUpperCase()}`}>
+                            <CheckCircle2 className="w-5 h-5" />
                           </div>
                         )}
                       </div>
@@ -682,6 +708,77 @@ export default function Home() {
             </div>
 
           </div>
+
+          {/* --- Footer Completo --- */}
+          <footer className="mt-20 border-t border-white/5 pt-12 pb-10">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 px-4">
+              <div className="col-span-1 md:col-span-1 space-y-4">
+                <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                  Robo<span className="text-purple-500">tina</span>
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Empoderando el trading con IA de vanguardia. Analiza, decide y domina los mercados financieros.
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:border-purple-500/50 transition-colors cursor-pointer text-slate-400 hover:text-white">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:border-blue-500/50 transition-colors cursor-pointer text-slate-400 hover:text-white">
+                    <Settings className="w-4 h-4" />
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:border-emerald-500/50 transition-colors cursor-pointer text-slate-400 hover:text-white">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white mb-4">Plataforma</h4>
+                <ul className="space-y-2 text-sm text-slate-500">
+                  <li><Link href="/" className="hover:text-purple-400 transition-colors">Dashboard</Link></li>
+                  <li><Link href="/pricing" className="hover:text-purple-400 transition-colors">Planes y Precios</Link></li>
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Análisis de Mercado</a></li>
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Comunidad VIP</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white mb-4">Ayuda</h4>
+                <ul className="space-y-2 text-sm text-slate-500">
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Soporte 24/7</a></li>
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Documentación</a></li>
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Términos de Uso</a></li>
+                  <li><a href="#" className="hover:text-purple-400 transition-colors">Política de Privacidad</a></li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold text-white mb-4">Únete a Robotina</h4>
+                <p className="text-xs text-slate-500">Suscríbete para recibir alertas de señales IA exclusivas.</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Tu email" 
+                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-purple-500/50 flex-1"
+                  />
+                  <button className="bg-white text-black px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 px-4">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+                © {new Date().getFullYear()} Robotina AI Ventures. Todos los derechos reservados.
+              </p>
+              <div className="flex items-center gap-4 text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                <span>Estado: <span className="text-emerald-400">Excelente</span></span>
+                <span className="hidden md:block">|</span>
+                <span>Latencia: <span className="text-blue-400">12ms</span></span>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

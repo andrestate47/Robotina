@@ -75,9 +75,9 @@ export default function LoginPage() {
         >
 
             {/* --- Premium Animated Background --- */}
-            {/* Background that follows the mouse */}
+            {/* Background that follows the mouse - HIDDEN ON MOBILE FOR PERFORMANCE */}
             <motion.div
-                className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300 opacity-60"
+                className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300 opacity-60 hidden md:block"
                 animate={{
                     background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(16, 185, 129, 0.15), transparent 80%)`,
                 }}
@@ -197,7 +197,7 @@ export default function LoginPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all font-medium"
-                                    placeholder="Correo electrónico o 'admin123'"
+                                    placeholder="Correo electrónico"
                                     required
                                 />
                             </div>
