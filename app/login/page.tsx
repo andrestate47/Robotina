@@ -54,18 +54,31 @@ export default function LoginPage() {
 
     // Background floating particles representing "growth" and "money"
     const [particles, setParticles] = useState<Array<{ id: number, size: number, x: number, y: number, duration: number, delay: number }>>([]);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        setParticles(
-            Array.from({ length: 20 }).map((_, i) => ({
-                id: i,
-                size: Math.random() * 60 + 20,
-                x: Math.random() * 100,
-                y: Math.random() * 100,
-                duration: Math.random() * 20 + 10,
-                delay: Math.random() * 5,
-            }))
-        );
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        // Solo generar partículas si NO es móvil
+        if (window.innerWidth >= 768) {
+            setParticles(
+                Array.from({ length: 20 }).map((_, i) => ({
+                    id: i,
+                    size: Math.random() * 60 + 20,
+                    x: Math.random() * 100,
+                    y: Math.random() * 100,
+                    duration: Math.random() * 20 + 10,
+                    delay: Math.random() * 5,
+                }))
+            );
+        }
+
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     return (
@@ -118,22 +131,24 @@ export default function LoginPage() {
                 />
             ))}
 
-            {/* Upward trending line animation (SVG) */}
-            <svg className="absolute w-full h-full opacity-[0.03] pointer-events-none" preserveAspectRatio="none">
-                <motion.path
-                    d="M0,800 Q150,750 300,600 T600,400 T900,200 T1200,100 L1200,800 Z"
-                    fill="url(#gradient-chart)"
-                    initial={{ opacity: 0, pathLength: 0 }}
-                    animate={{ opacity: 1, pathLength: 1 }}
-                    transition={{ duration: 2, ease: "easeOut" }}
-                />
-                <defs>
-                    <linearGradient id="gradient-chart" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" />
-                        <stop offset="100%" stopColor="transparent" />
-                    </linearGradient>
-                </defs>
-            </svg>
+            {/* Upward trending line animation (SVG) - HIDDEN ON MOBILE */}
+            {!isMobile && (
+                <svg className="absolute w-full h-full opacity-[0.03] pointer-events-none" preserveAspectRatio="none">
+                    <motion.path
+                        d="M0,800 Q150,750 300,600 T600,400 T900,200 T1200,100 L1200,800 Z"
+                        fill="url(#gradient-chart)"
+                        initial={{ opacity: 0, pathLength: 0 }}
+                        animate={{ opacity: 1, pathLength: 1 }}
+                        transition={{ duration: 2, ease: "easeOut" }}
+                    />
+                    <defs>
+                        <linearGradient id="gradient-chart" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" />
+                            <stop offset="100%" stopColor="transparent" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            )}
             {/* ---------------------------------- */}
 
 
@@ -148,8 +163,8 @@ export default function LoginPage() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 rounded-3xl blur-2xl opacity-50 z-0"></div>
 
                 <div className="relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 sm:p-8 shadow-2xl z-10 overflow-hidden">
-                    {/* Border Beam Magic UI Effect */}
-                    <BorderBeam size={250} duration={12} delay={9} />
+                    {/* Border Beam Magic UI Effect - HIDDEN ON MOBILE */}
+                    {!isMobile && <BorderBeam size={250} duration={12} delay={9} />}
 
                     {/* Subtle animated border top */}
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
@@ -193,12 +208,15 @@ export default function LoginPage() {
                                     <Mail className="w-5 h-5" />
                                 </div>
                                 <input
-                                    type="text"
+                                    type="email"
+                                    id="email-input"
+                                    name="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all font-medium"
-                                    placeholder="Correo electrónico"
+                                    placeholder="Email"
                                     required
+                                    autoComplete="email"
                                 />
                             </div>
 

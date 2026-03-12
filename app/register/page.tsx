@@ -47,18 +47,31 @@ export default function RegisterPage() {
 
     // Background floating particles representing "growth" and "money"
     const [particles, setParticles] = useState<Array<{ id: number, size: number, x: number, y: number, duration: number, delay: number }>>([]);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        setParticles(
-            Array.from({ length: 20 }).map((_, i) => ({
-                id: i,
-                size: Math.random() * 60 + 20,
-                x: Math.random() * 100,
-                y: Math.random() * 100,
-                duration: Math.random() * 20 + 10,
-                delay: Math.random() * 5,
-            }))
-        );
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        // Solo generar partículas si NO es móvil por rendimiento
+        if (window.innerWidth >= 768) {
+            setParticles(
+                Array.from({ length: 20 }).map((_, i) => ({
+                    id: i,
+                    size: Math.random() * 60 + 20,
+                    x: Math.random() * 100,
+                    y: Math.random() * 100,
+                    duration: Math.random() * 20 + 10,
+                    delay: Math.random() * 5,
+                }))
+            );
+        }
+
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     return (
@@ -69,8 +82,9 @@ export default function RegisterPage() {
 
             {/* --- Premium Animated Background --- */}
             {/* Background that follows the mouse */}
+            {/* Background that follows the mouse - HIDDEN ON MOBILE */}
             <motion.div
-                className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300 opacity-60"
+                className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300 opacity-60 hidden md:block"
                 animate={{
                     background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(6, 182, 212, 0.15), transparent 80%)`,
                 }}
@@ -122,8 +136,8 @@ export default function RegisterPage() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 rounded-3xl blur-2xl opacity-50 z-0"></div>
 
                 <div className="relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 sm:p-8 shadow-2xl z-10 overflow-hidden">
-                    {/* Border Beam Magic UI Effect */}
-                    <BorderBeam size={250} duration={12} delay={9} />
+                    {/* Border Beam Magic UI Effect - HIDDEN ON MOBILE */}
+                    {!isMobile && <BorderBeam size={250} duration={12} delay={9} />}
 
                     {/* Subtle animated border top */}
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
