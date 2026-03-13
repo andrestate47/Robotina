@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { UploadArea } from "@/components/upload-area"
 import { AnalysisResults } from "@/components/analysis-results"
@@ -138,6 +138,7 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userName, setUserName] = useState("Cargando...");
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<any>(null);
   const [lastAnalysisVote, setLastAnalysisVote] = useState<"up" | "down" | null>(null);
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
@@ -202,11 +203,12 @@ export default function Home() {
   }, [router]);
 
   const handleLogout = () => {
-    const confirmLogout = window.confirm("¿Estás seguro de que quieres cerrar la sesión?");
-    if (confirmLogout) {
-      localStorage.removeItem("investAnalyzerAuth");
-      router.push("/login");
-    }
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogoutAction = () => {
+    localStorage.removeItem("investAnalyzerAuth");
+    router.push("/login");
   };
 
   if (!isAuthenticated) {
@@ -781,6 +783,56 @@ export default function Home() {
           </footer>
         </main>
       </div>
+
+      {/* --- Modal de Cierre de Sesión (Wope Style) --- */}
+      <AnimatePresence>
+        {showLogoutModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLogoutModal(false)}
+              className="absolute inset-0 bg-[#07070a]/80 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-[#111118] border border-white/10 rounded-3xl p-8 shadow-2xl overflow-hidden"
+            >
+              <BorderBeam size={200} duration={8} colorFrom="#ef4444" colorTo="#a855f7" />
+              
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center border border-red-500/20 mb-2">
+                  <LogOut className="w-8 h-8 text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-white">¿Cerrar Sesión?</h3>
+                <p className="text-slate-400 text-sm">
+                  Estás a punto de salir del dashboard. Tendrás que volver a ingresar para ver tus métricas.
+                </p>
+                
+                <div className="flex flex-col w-full gap-3 mt-4">
+                  <button
+                    onClick={confirmLogoutAction}
+                    className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+                  >
+                    Sí, cerrar sesión
+                  </button>
+                  <button
+                    onClick={() => setShowLogoutModal(false)}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-slate-300 font-bold rounded-xl border border-white/10 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
