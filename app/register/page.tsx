@@ -169,7 +169,7 @@ export default function RegisterPage() {
                         {errorMsg && (
                             <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
                                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                                <span>Ocurrió un error al registrarse. Intenta otra contraseña.</span>
+                                <span>{errorMsg}</span>
                             </div>
                         )}
 
