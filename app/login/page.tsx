@@ -199,7 +199,7 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-6">
+                    <form onSubmit={handleLogin} className="space-y-6" autoComplete="off">
                         {errorMsg && (
                             <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
                                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -222,7 +222,7 @@ export default function LoginPage() {
                                     className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all font-medium"
                                     placeholder="Email"
                                     required
-                                    autoComplete="email"
+                                    autoComplete="username"
                                 />
                             </div>
 
@@ -238,6 +238,7 @@ export default function LoginPage() {
                                     className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-12 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all font-medium"
                                     placeholder="Contraseña"
                                     required
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
