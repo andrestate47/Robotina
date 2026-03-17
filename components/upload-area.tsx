@@ -147,13 +147,31 @@ export function UploadArea() {
 
   const saveToHistory = (parsed: any) => {
     try {
+      // 1. Guardar como último análisis (Widget Lateral)
+      localStorage.setItem("lastAnalysisResult", JSON.stringify(parsed));
+      localStorage.setItem("lastAnalysisVote", ""); // Reset voto
+
+      // 2. Actualizar contador total
+      const currentCount = parseInt(localStorage.getItem("analysisCount") || "0");
+      localStorage.setItem("analysisCount", (currentCount + 1).toString());
+
+      // 3. Guardar en historial de sesión (Lista Lateral)
       const historyRaw = localStorage.getItem("analysisHistory")
       let history = historyRaw ? JSON.parse(historyRaw) : []
       history.unshift({ ...parsed, timestamp: Date.now() })
       if (history.length > 4) history = history.slice(0, 4)
       localStorage.setItem("analysisHistory", JSON.stringify(history))
+
+      // 4. Actualizar estadísticas (Longs/Shorts)
+      if (parsed.tipo_analisis === "LONG") {
+        const longs = parseInt(localStorage.getItem("analysisLongs") || "0");
+        localStorage.setItem("analysisLongs", (longs + 1).toString());
+      } else if (parsed.tipo_analisis === "SHORT") {
+        const shorts = parseInt(localStorage.getItem("analysisShorts") || "0");
+        localStorage.setItem("analysisShorts", (shorts + 1).toString());
+      }
     } catch (e) {
-      console.warn("No se pudo guardar historial")
+      console.warn("No se pudo guardar historial", e)
     }
   }
 

@@ -39,10 +39,14 @@ export default function RegisterPage() {
             setErrorMsg(error.message);
             setIsLoading(false);
         } else {
-            setSuccessMsg("¡Cuenta creada con éxito! Ya puedes iniciar sesión.");
+            // Guardar sesión local para permitir acceso inmediato si el email no requiere confirmación
+            localStorage.setItem("investAnalyzerAuth", "true");
+            localStorage.setItem("investAnalyzerUser", email.split("@")[0]);
+            
+            setSuccessMsg("¡Cuenta creada con éxito! Redirigiendo...");
             setTimeout(() => {
-                router.push("/login");
-            }, 3000);
+                router.push("/");
+            }, 2000);
         }
     };
 
