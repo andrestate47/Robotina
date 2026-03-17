@@ -569,7 +569,7 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Sección Upload Amplia */}
-              <div className="lg:col-span-2 bg-[#09090d] border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+              <div className="lg:col-span-2 bg-[#09090d] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
                 {/* Indicador de Status Neon */}
                 <div className="absolute top-0 right-0 p-6 flex opacity-50">
                   <div className="animate-pulse w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_purple]"></div>
@@ -579,7 +579,7 @@ export default function Home() {
                   Motor de Análisis Neuronal
                 </h3>
                 {/* Aquí inyectamos tu componente de subida original manteniendo su funcionalidad */}
-                <div className="bg-[#0a0a0f] rounded-2xl border border-white/5 overflow-hidden">
+                <div className="bg-[#0a0a0f] rounded-xl border border-white/5 overflow-hidden">
                   <UploadArea />
                 </div>
               </div>
@@ -704,7 +704,7 @@ export default function Home() {
             </div>
 
             {/* Results Section */}
-            <div className="bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl">
+            <div className="bg-[#111118] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl">
               <h3 className="text-lg font-bold text-white mb-6">Resultados del Informe</h3>
               <AnalysisResults />
             </div>
