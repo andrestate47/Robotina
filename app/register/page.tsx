@@ -30,23 +30,32 @@ export default function RegisterPage() {
         setErrorMsg("");
         setSuccessMsg("");
 
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
+        try {
+            console.log("Intentando registro para:", email);
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
 
-        if (error) {
-            setErrorMsg(error.message);
+            if (error) {
+                console.error("Error de Supabase:", error.message);
+                setErrorMsg(error.message);
+                setIsLoading(false);
+            } else {
+                console.log("Registro exitoso:", data);
+                // Forzar sesión local para bypass de confirmación si es necesario
+                localStorage.setItem("investAnalyzerAuth", "true");
+                localStorage.setItem("investAnalyzerUser", email.split("@")[0]);
+                
+                setSuccessMsg("¡Cuenta creada! Redirigiendo al dashboard...");
+                setTimeout(() => {
+                    window.location.href = "/"; // Usar window.location para asegurar limpieza de estado
+                }, 1500);
+            }
+        } catch (err: any) {
+            console.error("Fallo crítico en registro:", err);
+            setErrorMsg("Error de conexión. Verifica tu internet o contacta soporte.");
             setIsLoading(false);
-        } else {
-            // Guardar sesión local para permitir acceso inmediato si el email no requiere confirmación
-            localStorage.setItem("investAnalyzerAuth", "true");
-            localStorage.setItem("investAnalyzerUser", email.split("@")[0]);
-            
-            setSuccessMsg("¡Cuenta creada con éxito! Redirigiendo...");
-            setTimeout(() => {
-                router.push("/");
-            }, 2000);
         }
     };
 
