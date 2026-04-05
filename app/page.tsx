@@ -7,7 +7,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { UploadArea } from "@/components/upload-area"
 import { AnalysisResults } from "@/components/analysis-results"
+import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { BorderBeam } from "@/components/magicui/border-beam"
+import { supabase } from "@/lib/supabaseClient"
 import {
   TrendingUp,
   BarChart3,
@@ -30,7 +32,8 @@ import {
   CheckCircle2,
   CreditCard,
   Star,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from "lucide-react"
 
 // --- COMPONENTE LOGOS DE ACTIVOS PÚBLICOS ---
@@ -145,12 +148,63 @@ export default function Home() {
   const [analysisCount, setAnalysisCount] = useState(0);
   const [stats, setStats] = useState({ longs: 0, shorts: 0, upvotes: 0, downvotes: 0 });
   const [isCatAnimating, setIsCatAnimating] = useState(false);
+  const [userPlan, setUserPlan] = useState<"gratis" | "pro" | "elite">("gratis");
+
+  // Trial States
+  const [analysisRemaining, setAnalysisRemaining] = useState<number>(10);
+  const [isTrialExpired, setIsTrialExpired] = useState<boolean>(false);
+  const [daysLeft, setDaysLeft] = useState<number>(3);
+  const [isDev, setIsDev] = useState(false);
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<"dashboard" | "metrics">("dashboard");
 
   // Computa si debemos mostrar el texto dependiendo del dispositivo
   const showSidebarText = isSidebarOpen || isMobileMenuOpen;
 
+  const fetchUserProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setIsAuthenticated(!!session.user);
+      setUserName(session.user.email?.split('@')[0] || "admin");
+      
+      const devEmail = "andresfuigueroaz@gmail.com";
+      const isUserDev = session.user.email === devEmail || session.user.email?.includes("admin");
+      setIsDev(isUserDev);
+
+      const { data } = await supabase
+        .from("perfiles")
+        .select("plan, creado_el, analisis_restantes")
+        .eq("id", session.user.id)
+        .single();
+      
+      if (data) {
+        setUserPlan(data.plan as any);
+        setAnalysisRemaining(isUserDev ? 999 : (data.analisis_restantes ?? 10));
+        
+        if (data.creado_el) {
+          const daysPassed = (new Date().getTime() - new Date(data.creado_el).getTime()) / (1000 * 3600 * 24);
+          setDaysLeft(Math.max(0, 3 - Math.floor(daysPassed)));
+          setIsTrialExpired(!isUserDev && daysPassed > 3);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
-    // Verificamos si el usuario se autenticó previamente
+    fetchUserProfile();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          fetchUserProfile();
+        } else {
+          router.push("/login");
+        }
+      }
+    );
+
+    // Sistema legacy Auth (Fallback por si acaso)
     const isAuth = localStorage.getItem("investAnalyzerAuth");
     if (isAuth !== "true") {
       router.push("/login"); // Si no está autenticado, lo echamos al login
@@ -214,6 +268,9 @@ export default function Home() {
   if (!isAuthenticated) {
     return null;
   }
+
+  // Lógica del Trial Free
+  const isLocked = userPlan === "gratis" && (analysisRemaining <= 0 || isTrialExpired);
 
   // --- Compute Real Stats ---
   const totalDominance = stats.longs + stats.shorts;
@@ -290,18 +347,18 @@ export default function Home() {
           <div className={`space-y-1 mt-4 ${showSidebarText ? "p-4" : "p-2"}`}>
             {showSidebarText && <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 transition-all whitespace-nowrap">Principal</p>}
 
-            <a href="#" className={`flex items-center gap-3 py-2.5 rounded-lg bg-purple-500/10 text-purple-400 font-medium transition-colors border border-purple-500/20 whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
+            <button onClick={() => { setActiveTab("dashboard"); if(isMobileMenuOpen) setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2.5 rounded-lg ${activeTab === "dashboard" ? "bg-purple-500/10 text-purple-400 font-medium border border-purple-500/20" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"} transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
               <LayoutDashboard className="w-5 h-5 shrink-0" />
               {showSidebarText && <span>Panel de Control</span>}
-            </a>
-            <a href="#" className={`flex items-center gap-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
+            </button>
+            <button className={`w-full flex items-center gap-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
               <History className="w-5 h-5 shrink-0" />
               {showSidebarText && <span>Historial de Análisis</span>}
-            </a>
-            <a href="#" className={`flex items-center gap-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
+            </button>
+            <button onClick={() => { setActiveTab("metrics"); if(isMobileMenuOpen) setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2.5 rounded-lg ${activeTab === "metrics" ? "bg-purple-500/10 text-purple-400 font-medium border border-purple-500/20" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"} transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
               <BarChart3 className="w-5 h-5 shrink-0" />
               {showSidebarText && <span>Métricas y Rendimiento</span>}
-            </a>
+            </button>
             <Link href="/pricing" className={`flex items-center gap-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors whitespace-nowrap ${showSidebarText ? "px-3" : "justify-center"}`}>
               <CreditCard className="w-5 h-5 shrink-0" />
               {showSidebarText && <span>Planes y Precios</span>}
@@ -334,7 +391,7 @@ export default function Home() {
       </aside>
 
       {/* --- Contenido Principal --- */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative max-w-full">
         {/* Glow de fondo para simular ambiente Wope */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-purple-600/15 blur-[120px] rounded-full pointer-events-none -z-10" />
 
@@ -374,341 +431,381 @@ export default function Home() {
         </header>
 
         {/* Workspace scrolleable */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 z-0 relative">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 py-8 z-0 relative max-w-full">
 
           <div className="max-w-6xl mx-auto space-y-8 relative">
 
-            {/* --- Nuevo Hero Supahero Style --- */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="relative w-full rounded-3xl overflow-hidden bg-[#111118]/80 border border-white/10 p-8 sm:p-12 shadow-2xl backdrop-blur-xl"
-            >
-              {/* Luces y efectos de fondo del Hero */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] pointer-events-none"></div>
+            {activeTab === "dashboard" && (
+              <>
+                {/* --- Nuevo Hero Supahero Style --- */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="relative w-full rounded-3xl overflow-hidden bg-[#111118]/80 border border-white/10 p-8 sm:p-12 shadow-2xl backdrop-blur-xl"
+                >
+                  {/* Luces y efectos de fondo del Hero */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] pointer-events-none"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] pointer-events-none"></div>
 
-              {/* Opcional: El rayo animado rodeando el Hero para extra lujo */}
-              <BorderBeam size={400} duration={12} delay={9} colorFrom="#a855f7" colorTo="#3b82f6" />
+                  {/* Opcional: El rayo animado rodeando el Hero para extra lujo */}
+                  <BorderBeam size={400} duration={12} delay={9} colorFrom="#a855f7" colorTo="#3b82f6" />
 
-              <div className="relative z-10 flex flex-col gap-10">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                  <div className="flex-1 space-y-5 text-center md:text-left">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-purple-300">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                      </span>
-                      Sistema IA Activo y Listo
-                    </div>
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white via-slate-200 to-slate-500 tracking-tight leading-tight">
-                      Maximiza tu Rentabilidad <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">
-                        Con Ventaja Algorítmica.
-                      </span>
-                    </h2>
-                    <p className="text-lg text-slate-400 max-w-xl">
-                      Obtén la ventaja definitiva en el mercado. Robotina escanea instantáneamente tus gráficos para revelar patrones ocultos, confirmar tus entradas y ayudarte a operar con la precisión de un profesional.
-                    </p>
-                  </div>
-                  {/* Flotante decorativo en el Hero */}
-                  <div className="hidden md:flex flex-1 justify-center relative -translate-y-4">
-                    <motion.div
-                      onDoubleClick={() => {
-                        if (!isCatAnimating) {
-                          setIsCatAnimating(true);
-                          setTimeout(() => setIsCatAnimating(false), 1200);
-                        }
-                      }}
-                      animate={
-                        isCatAnimating
-                          ? { rotateY: 720, scale: 1.1 }
-                          : { rotateY: 0, scale: 1 }
-                      }
-                      transition={
-                        isCatAnimating
-                          ? { duration: 1.2, ease: "easeInOut" }
-                          : { duration: 0.3, ease: "easeInOut" }
-                      }
-                      className="relative w-64 h-64 cursor-pointer z-20 group"
-                    >
-                      {/* Burbuja "Power of AI" */}
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.5, y: 10 }}
-                        animate={{ opacity: isCatAnimating ? 1 : 0, scale: isCatAnimating ? 1 : 0.5, y: isCatAnimating ? -20 : 10 }}
-                        transition={{ duration: 0.3 }}
-                        className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500/90 text-white text-xs font-black tracking-widest px-4 py-1.5 rounded-full shadow-[0_0_20px_purple] whitespace-nowrap pointer-events-none"
-                      >
-                        POWER OF AI ⚡
-                      </motion.div>
-
-                      <Image
-                        src="/robot-cat.png"
-                        alt="Gato IA Hero"
-                        fill
-                        className="object-contain drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] group-hover:drop-shadow-[0_0_50px_rgba(168,85,247,0.8)] transition-all duration-300"
-                      />
-                    </motion.div>
-                  </div>
-                </div>
-
-                {/* Ticker 95% Ancho Centrado */}
-                <div className="w-full md:w-[95%] mx-auto overflow-hidden relative border border-white/10 bg-white/5 rounded-xl py-3 flex backdrop-blur-sm shadow-xl">
-                  {/* Sombras en los bordes para difuminar */}
-                  <div className="absolute left-0 top-0 bottom-0 w-12 md:w-24 bg-gradient-to-r from-[#111118] to-transparent z-10 pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-12 md:w-24 bg-gradient-to-l from-[#111118] to-transparent z-10 pointer-events-none" />
-
-                  <motion.div
-                    className="flex items-center gap-8 whitespace-nowrap"
-                    animate={{ x: ["0%", "-50%"] }}
-                    transition={{ ease: "linear", duration: 30, repeat: Infinity }}
-                  >
-                    {[
-                      { symbol: "BTC", price: "94,235.10", change: "+2.4%", up: true },
-                      { symbol: "NVDA", price: "184.76", change: "+1.2%", up: true },
-                      { symbol: "TSLA", price: "205.14", change: "-0.5%", up: false },
-                      { symbol: "AAPL", price: "225.00", change: "+0.8%", up: true },
-                      { symbol: "SPX", price: "5,980.11", change: "+0.3%", up: true },
-                      { symbol: "GOLD", price: "2,650.40", change: "+0.1%", up: true },
-                      { symbol: "ETH", price: "3,120.50", change: "-1.2%", up: false },
-                      // Duplicados para efecto infinito sin saltos
-                      { symbol: "BTC", price: "94,235.10", change: "+2.4%", up: true },
-                      { symbol: "NVDA", price: "184.76", change: "+1.2%", up: true },
-                      { symbol: "TSLA", price: "205.14", change: "-0.5%", up: false },
-                      { symbol: "AAPL", price: "225.00", change: "+0.8%", up: true },
-                      { symbol: "SPX", price: "5,980.11", change: "+0.3%", up: true },
-                      { symbol: "GOLD", price: "2,650.40", change: "+0.1%", up: true },
-                      { symbol: "ETH", price: "3,120.50", change: "-1.2%", up: false },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm font-semibold tracking-wide">
-                        <span className="text-slate-400">{item.symbol}</span>
-                        <span className="text-white">${item.price}</span>
-                        <span className={item.up ? "text-emerald-400" : "text-rose-400"}>{item.change}</span>
-                      </div>
-                    ))}
-                  </motion.div>
-                </div>
-
-                {/* Llamado a la acción (CTA) debajo del Ticker */}
-                <div className="flex justify-center mt-6">
-                  <Link 
-                    href="/pricing"
-                    className="group relative flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-2xl hover:scale-[1.05] transition-all shadow-xl hover:shadow-purple-500/20"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
-                    <Star className="w-4 h-4 text-purple-600 animate-pulse" />
-                    Ver Planes Premium
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </div>
-
-              </div>
-            </motion.div>
-
-            {/* Quick Stats (Bento Grid Style) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-purple-500/30 transition-all">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full">+1 Nueva Actividad</span>
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-1">{analysisCount}</h3>
-                <p className="text-sm text-slate-500">Análisis realizados este mes</p>
-              </div>
-
-              <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-blue-500/30 transition-all">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${dominantColorClass}`}>
-                    {totalDominance} analizados
-                  </span>
-                </div>
-                <h3 className={`text-3xl font-bold mb-1 ${dominantTextColor}`}>{dominantValue}</h3>
-                <p className="text-sm text-slate-500">{dominantLabel}</p>
-              </div>
-
-              <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-rose-500/30 transition-all">
-                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
-                    <Shield className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-semibold text-purple-400 bg-purple-400/10 px-2 py-1 rounded-full">
-                    {totalVotes} votos tuyos
-                  </span>
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-1">{totalVotes > 0 ? `${accuracyScore}%` : 'N/A'}</h3>
-                <p className="text-sm text-slate-500">Satisfacción Global de la IA</p>
-              </div>
-
-              {/* Panel 4: Market Live Ticks */}
-              <div className="bg-[#111118] border border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all flex flex-col justify-between">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                    <BarChart3 className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded-full flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
-                    Live Data
-                  </span>
-                </div>
-                <div className="flex-1 mt-1">
-                  <LiveMiniChartGrid />
-                </div>
-              </div>
-            </div>
-
-            {/* Nuevo Analizador Wrapper Estilo Bento */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-              {/* Sección Upload Amplia */}
-              <div className="lg:col-span-2 bg-[#09090d] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
-                {/* Indicador de Status Neon */}
-                <div className="absolute top-0 right-0 p-6 flex opacity-50">
-                  <div className="animate-pulse w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_purple]"></div>
-                </div>
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Scan className="w-5 h-5 text-purple-400" />
-                  Motor de Análisis Neuronal
-                </h3>
-                {/* Aquí inyectamos tu componente de subida original manteniendo su funcionalidad */}
-                <div className="bg-[#0a0a0f] rounded-xl border border-white/5 overflow-hidden">
-                  <UploadArea />
-                </div>
-              </div>
-
-              {/* Tips/Info Lateral */}
-              <div className="space-y-4">
-                {/* Historial de últimos 4 análisis */}
-                <div className="bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
-                  <h3 className="text-sm font-semibold text-slate-300 mb-4 relative z-10 flex items-center justify-between">
-                    <span>Últimos Análisis</span>
-                    <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{analysisHistory.length}/4 en sesión</span>
-                  </h3>
-
-                  <div className="space-y-2 relative z-10">
-                    {analysisHistory.length > 0 ? (
-                      analysisHistory.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-default">
-                          <div className="w-8 h-8 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
-                            <AssetIcon symbol={item.datos_mercado?.symbol || item.patron_detectado} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-white uppercase truncate">{item.datos_mercado?.symbol || item.patron_detectado || "Activo"}</p>
-                            <p className="text-[9px] text-slate-400 truncate">{item.patron_detectado || "Sin patrón"}</p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${item.tipo_analisis === "LONG" ? "text-emerald-400 bg-emerald-400/10" : item.tipo_analisis === "SHORT" ? "text-red-400 bg-red-400/10" : "text-blue-400 bg-blue-400/10"}`}>
-                              {item.tipo_analisis === "LONG" ? "LONG" : item.tipo_analisis === "SHORT" ? "SHORT" : "NEUTRO"}
-                            </span>
-                          </div>
+                  <div className="relative z-10 flex flex-col gap-10">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                      <div className="flex-1 space-y-5 text-center md:text-left">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-purple-300">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                          </span>
+                          Sistema IA Activo y Listo
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-xs text-slate-500 italic">
-                        No has analizado ninguna gráfica aún.
+                        <h2 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white via-slate-200 to-slate-500 tracking-tight leading-tight">
+                          Maximiza tu Rentabilidad <br />
+                          <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">
+                            Con Ventaja Algorítmica.
+                          </span>
+                        </h2>
+                        <p className="text-lg text-slate-400 max-w-xl">
+                          Obtén la ventaja definitiva en el mercado. Robotina escanea instantáneamente tus gráficos para revelar patrones ocultos, confirmar tus entradas y ayudarte a operar con la precisión de un profesional.
+                        </p>
+                      </div>
+                      {/* Flotante decorativo en el Hero */}
+                      <div className="hidden md:flex flex-1 justify-center relative -translate-y-4">
+                        <motion.div
+                          onDoubleClick={() => {
+                            if (!isCatAnimating) {
+                              setIsCatAnimating(true);
+                              setTimeout(() => setIsCatAnimating(false), 2500);
+                            }
+                          }}
+                          animate={
+                            isCatAnimating
+                              ? { rotateY: 720, scale: 1.1 }
+                              : { rotateY: 0, scale: 1 }
+                          }
+                          transition={
+                            isCatAnimating
+                              ? { duration: 1.2, ease: "easeInOut" }
+                              : { duration: 0.3, ease: "easeInOut" }
+                          }
+                          className="relative w-72 h-80 group cursor-pointer"
+                        >
+                          {/* Burbuja de diálogo AI */}
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                            animate={{ opacity: isCatAnimating ? 1 : 0, scale: isCatAnimating ? 1 : 0.5, y: isCatAnimating ? -20 : 10 }}
+                            transition={{ duration: 0.3 }}
+                            className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500/90 text-white text-xs font-black tracking-widest px-4 py-1.5 rounded-full shadow-[0_0_20px_purple] whitespace-nowrap pointer-events-none"
+                          >
+                            POWER OF AI ⚡
+                          </motion.div>
+
+                          <Image
+                            src="/robot-cat.png"
+                            alt="Gato IA Hero"
+                            fill
+                            className="object-contain drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] group-hover:drop-shadow-[0_0_50px_rgba(168,85,247,0.8)] transition-all duration-300"
+                          />
+                        </motion.div>
+                      </div>
+                    </div>
+
+                    {/* Ticker 95% Ancho Centrado */}
+                    <div className="w-full md:w-[95%] mx-auto overflow-hidden relative border border-white/10 bg-white/5 rounded-xl py-3 flex backdrop-blur-sm shadow-xl">
+                      {/* Sombras en los bordes para difuminar */}
+                      <div className="absolute left-0 top-0 bottom-0 w-12 md:w-24 bg-gradient-to-r from-[#111118] to-transparent z-10 pointer-events-none" />
+                      <div className="absolute right-0 top-0 bottom-0 w-12 md:w-24 bg-gradient-to-l from-[#111118] to-transparent z-10 pointer-events-none" />
+
+                      <motion.div
+                        className="flex items-center gap-8 whitespace-nowrap"
+                        animate={{ x: ["0%", "-50%"] }}
+                        transition={{ ease: "linear", duration: 30, repeat: Infinity }}
+                      >
+                        {[
+                          { symbol: "BTC", price: "94,235.10", change: "+2.4%", up: true },
+                          { symbol: "NVDA", price: "184.76", change: "+1.2%", up: true },
+                          { symbol: "TSLA", price: "205.14", change: "-0.5%", up: false },
+                          { symbol: "AAPL", price: "225.00", change: "+0.8%", up: true },
+                          { symbol: "SPX", price: "5,980.11", change: "+0.3%", up: true },
+                          { symbol: "GOLD", price: "2,650.40", change: "+0.1%", up: true },
+                          { symbol: "ETH", price: "3,120.50", change: "-1.2%", up: false },
+                          // Duplicados para efecto infinito sin saltos
+                          { symbol: "BTC", price: "94,235.10", change: "+2.4%", up: true },
+                          { symbol: "NVDA", price: "184.76", change: "+1.2%", up: true },
+                          { symbol: "TSLA", price: "205.14", change: "-0.5%", up: false },
+                          { symbol: "AAPL", price: "225.00", change: "+0.8%", up: true },
+                          { symbol: "SPX", price: "5,980.11", change: "+0.3%", up: true },
+                          { symbol: "GOLD", price: "2,650.40", change: "+0.1%", up: true },
+                          { symbol: "ETH", price: "3,120.50", change: "-1.2%", up: false },
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+                            <span className="text-slate-400">{item.symbol}</span>
+                            <span className="text-white">${item.price}</span>
+                            <span className={item.up ? "text-emerald-400" : "text-rose-400"}>{item.change}</span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    </div>
+
+                    {/* Llamado a la acción (CTA) debajo del Ticker */}
+                    <div className="flex justify-center mt-6">
+                      <Link 
+                        href="/pricing"
+                        className="group relative flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-2xl hover:scale-[1.05] transition-all shadow-xl hover:shadow-purple-500/20"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+                        <Star className="w-4 h-4 text-purple-600 animate-pulse" />
+                        Ver Planes Premium
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
+
+                  </div>
+                </motion.div>
+
+                {/* Quick Stats (Bento Grid Style) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-purple-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full">+1 Nueva Actividad</span>
+                    </div>
+                    <h3 className="text-3xl font-bold text-white mb-1">{analysisCount}</h3>
+                    <p className="text-sm text-slate-500">Análisis realizados este mes</p>
+                  </div>
+
+                  <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-blue-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                        <TrendingUp className="w-5 h-5" />
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${dominantColorClass}`}>
+                        {totalDominance} analizados
+                      </span>
+                    </div>
+                    <h3 className={`text-3xl font-bold mb-1 ${dominantTextColor}`}>{dominantValue}</h3>
+                    <p className="text-sm text-slate-500">{dominantLabel}</p>
+                  </div>
+
+                  <div className="bg-[#111118] border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-rose-500/30 transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-purple-400 bg-purple-400/10 px-2 py-1 rounded-full">
+                        {totalVotes} votos tuyos
+                      </span>
+                    </div>
+                    <h3 className="text-3xl font-bold text-white mb-1">{totalVotes > 0 ? `${accuracyScore}%` : 'N/A'}</h3>
+                    <p className="text-sm text-slate-500">Satisfacción Global de la IA</p>
+                  </div>
+
+                  {/* Panel 4: Market Live Ticks */}
+                  <div className="bg-[#111118] border border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                        <BarChart3 className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded-full flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
+                        Live Data
+                      </span>
+                    </div>
+                    <div className="flex-1 mt-1">
+                      <LiveMiniChartGrid />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nuevo Analizador Wrapper Estilo Bento */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                  {/* Sección Upload Amplia */}
+                  <div className="lg:col-span-2 bg-[#09090d] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
+                    {/* Indicador de Status Neon */}
+                    <div className="absolute top-0 right-0 p-6 flex opacity-50">
+                      <div className="animate-pulse w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_purple]"></div>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Scan className="w-5 h-5 text-purple-400" />
+                      Motor de Análisis Neuronal
+                    </h3>
+                    {/* Aquí inyectamos tu componente de subida original manteniendo su funcionalidad */}
+                    {/* Interfaz protegida por El Guardián */}
+                    {userPlan === "gratis" && !isLocked && (
+                      <div className="mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest mb-0.5">Trial Activo</p>
+                          <p className="text-sm text-slate-300">Te quedan <strong className="text-white">{analysisRemaining} análisis</strong> y <strong className="text-white">{daysLeft} días</strong> de prueba.</p>
+                        </div>
+                        <Link href="/pricing" className="text-xs font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+                          Adquirir Plan
+                        </Link>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                <div className="bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Último Análisis detectado:</h4>
-                  {lastAnalysis ? (
-                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 cursor-pointer hover:border-purple-500/30 transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 shrink-0 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center text-purple-400 font-bold overflow-hidden shadow-inner">
-                          <AssetIcon symbol={lastAnalysis.datos_mercado?.symbol || lastAnalysis.patron_detectado} />
-                        </div>
-                        <div className="flex flex-col flex-1">
-                          <p className="text-sm font-bold text-white uppercase tracking-wider">{lastAnalysis.datos_mercado?.symbol || lastAnalysis.patron_detectado || "Activo"}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${lastAnalysis.tipo_analisis === "LONG" ? "text-emerald-400 bg-emerald-400/10" : lastAnalysis.tipo_analisis === "SHORT" ? "text-red-400 bg-red-400/10" : "text-blue-400 bg-blue-400/10"}`}>
-                              {lastAnalysis.tipo_analisis === "LONG" ? "ALCISTA" : lastAnalysis.tipo_analisis === "SHORT" ? "BAJISTA" : "ANALIZADO"}
-                            </span>
-                            <span className="text-[10px] text-slate-500 hidden sm:inline-block">• Local</span>
+                    
+                    <div className="bg-[#0a0a0f] rounded-xl border border-white/5 overflow-hidden relative min-h-[400px]">
+                      {isLocked && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]/60 backdrop-blur-[6px]">
+                          <div className="text-center p-8 bg-[#111118] border border-purple-500/30 rounded-3xl shadow-2xl max-w-sm mx-auto relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+                            <Lock className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Prueba Expirada</h3>
+                            <p className="text-sm text-slate-400 mb-6 leading-relaxed">Tu cuenta prueba ha terminado ({analysisRemaining <= 0 ? "sin análisis" : "tiempo expirado"}). Adquiere un plan para predecir gráficas sin límites.</p>
+                            <Link href="/pricing" className="inline-flex items-center justify-center w-full py-4 px-6 bg-white rounded-2xl font-bold text-black hover:bg-slate-200 hover:scale-[1.02] transition-all shadow-xl">
+                              Desbloquear Robotina
+                            </Link>
                           </div>
                         </div>
+                      )}
+                      <div className={isLocked ? "opacity-20 pointer-events-none select-none blur-sm h-full" : "h-full"}>
+                        <UploadArea onAnalysisCompleted={fetchUserProfile} analysisRemaining={analysisRemaining} />
                       </div>
+                    </div>
+                  </div>
 
-                      {/* Votación al extremo derecho */}
-                      <div className="flex items-center shrink-0 ml-4 bg-white/5 p-1 rounded-xl border border-white/10 shadow-inner">
-                        {!lastAnalysisVote ? (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLastAnalysisVote("up");
-                                localStorage.setItem("lastAnalysisVote", "up");
-                                const currentUp = parseInt(localStorage.getItem("analysisUpvotes") || "0");
-                                localStorage.setItem("analysisUpvotes", (currentUp + 1).toString());
-                                window.dispatchEvent(new Event("newAnalysisSaved"));
-                                fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
-                                  method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "UP",
-                                    symbol: lastAnalysis?.datos_mercado?.symbol || "N/A", price: lastAnalysis?.entrada || "N/A", comment: "Voto Widget Lateral"
-                                  })
-                                });
-                              }}
-                              className="p-2 hover:bg-emerald-500/20 hover:text-emerald-400 text-white rounded-lg transition-all"
-                              title="Buen análisis"
-                            >
-                              <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLastAnalysisVote("down");
-                                localStorage.setItem("lastAnalysisVote", "down");
-                                const currentDown = parseInt(localStorage.getItem("analysisDownvotes") || "0");
-                                localStorage.setItem("analysisDownvotes", (currentDown + 1).toString());
-                                window.dispatchEvent(new Event("newAnalysisSaved"));
-                                fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
-                                  method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "DOWN",
-                                    symbol: lastAnalysis?.datos_mercado?.symbol || "N/A", price: lastAnalysis?.entrada || "N/A", comment: "Voto Widget Lateral"
-                                  })
-                                });
-                              }}
-                              className="p-2 hover:bg-rose-500/20 hover:text-rose-400 text-white rounded-lg transition-all"
-                              title="Mal análisis"
-                            >
-                              <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-                          </div>
+                  {/* Tips/Info Lateral */}
+                  <div className="space-y-4">
+                    {/* Historial de últimos 4 análisis */}
+                    <div className="bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
+                      <h3 className="text-sm font-semibold text-slate-300 mb-4 relative z-10 flex items-center justify-between">
+                        <span>Últimos Análisis</span>
+                        <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{analysisHistory.length}/4 en sesión</span>
+                      </h3>
+
+                      <div className="space-y-2 relative z-10">
+                        {analysisHistory.length > 0 ? (
+                          analysisHistory.map((item, index) => (
+                            <div key={index} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-default">
+                              <div className="w-8 h-8 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                                <AssetIcon symbol={item.datos_mercado?.symbol || item.patron_detectado} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-white uppercase truncate">{item.datos_mercado?.symbol || item.patron_detectado || "Activo"}</p>
+                                <p className="text-[9px] text-slate-400 truncate">{item.patron_detectado || "Sin patrón"}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${item.tipo_analisis === "LONG" ? "text-emerald-400 bg-emerald-400/10" : item.tipo_analisis === "SHORT" ? "text-red-400 bg-red-400/10" : "text-blue-400 bg-blue-400/10"}`}>
+                                  {item.tipo_analisis === "LONG" ? "LONG" : item.tipo_analisis === "SHORT" ? "SHORT" : "NEUTRO"}
+                                </span>
+                              </div>
+                            </div>
+                          ))
                         ) : (
-                          <div className="text-emerald-400 flex items-center justify-center p-2 bg-emerald-500/10 rounded-full border border-emerald-500/20" title={`Has votado ${lastAnalysisVote.toUpperCase()}`}>
-                            <CheckCircle2 className="w-5 h-5" />
+                          <div className="text-center py-6 text-xs text-slate-500 italic">
+                            No has analizado ninguna gráfica aún.
                           </div>
                         )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-4 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-xs text-slate-500 italic font-medium">No hay análisis registrados</p>
+
+                    <div className="bg-[#111118] border border-white/5 rounded-3xl p-6 shadow-2xl">
+                      <h4 className="text-sm font-semibold text-slate-300 mb-3">Último Análisis detectado:</h4>
+                      {lastAnalysis ? (
+                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 cursor-pointer hover:border-purple-500/30 transition-colors group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 shrink-0 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center text-purple-400 font-bold overflow-hidden shadow-inner">
+                              <AssetIcon symbol={lastAnalysis.datos_mercado?.symbol || lastAnalysis.patron_detectado} />
+                            </div>
+                            <div className="flex flex-col flex-1">
+                              <p className="text-sm font-bold text-white uppercase tracking-wider">{lastAnalysis.datos_mercado?.symbol || lastAnalysis.patron_detectado || "Activo"}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${lastAnalysis.tipo_analisis === "LONG" ? "text-emerald-400 bg-emerald-400/10" : lastAnalysis.tipo_analisis === "SHORT" ? "text-red-400 bg-red-400/10" : "text-blue-400 bg-blue-400/10"}`}>
+                                  {lastAnalysis.tipo_analisis === "LONG" ? "ALCISTA" : lastAnalysis.tipo_analisis === "SHORT" ? "BAJISTA" : "ANALIZADO"}
+                                </span>
+                                <span className="text-[10px] text-slate-500 hidden sm:inline-block">• Local</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Votación al extremo derecho */}
+                          <div className="flex items-center shrink-0 ml-4 bg-white/5 p-1 rounded-xl border border-white/10 shadow-inner">
+                            {!lastAnalysisVote ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLastAnalysisVote("up");
+                                    localStorage.setItem("lastAnalysisVote", "up");
+                                    const currentUp = parseInt(localStorage.getItem("analysisUpvotes") || "0");
+                                    localStorage.setItem("analysisUpvotes", (currentUp + 1).toString());
+                                    window.dispatchEvent(new Event("newAnalysisSaved"));
+                                    fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
+                                      method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "UP",
+                                        symbol: lastAnalysis?.datos_mercado?.symbol || "N/A", price: lastAnalysis?.entrada || "N/A", comment: "Voto Widget Lateral"
+                                      })
+                                    });
+                                  }}
+                                  className="p-2 hover:bg-emerald-500/20 hover:text-emerald-400 text-white rounded-lg transition-all"
+                                  title="Buen análisis"
+                                >
+                                  <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLastAnalysisVote("down");
+                                    localStorage.setItem("lastAnalysisVote", "down");
+                                    const currentDown = parseInt(localStorage.getItem("analysisDownvotes") || "0");
+                                    localStorage.setItem("analysisDownvotes", (currentDown + 1).toString());
+                                    window.dispatchEvent(new Event("newAnalysisSaved"));
+                                    fetch("https://script.google.com/macros/s/AKfycbxV04IAgtqn7317hMOx5Bqjs-BHGB7UjdGDNYDKHKoGkO2KLLzPEenK1_RtlfaCQEvi2A/exec", {
+                                      method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        date: new Date().toLocaleString("es-ES", { timeZone: "America/New_York" }), vote: "DOWN",
+                                        symbol: lastAnalysis?.datos_mercado?.symbol || "N/A", price: lastAnalysis?.entrada || "N/A", comment: "Voto Widget Lateral"
+                                      })
+                                    });
+                                  }}
+                                  className="p-2 hover:bg-rose-500/20 hover:text-rose-400 text-white rounded-lg transition-all"
+                                  title="Mal análisis"
+                                >
+                                  <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-emerald-400 flex items-center justify-center p-2 bg-emerald-500/10 rounded-full border border-emerald-500/20" title={`Has votado ${lastAnalysisVote.toUpperCase()}`}>
+                                <CheckCircle2 className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-4 bg-white/5 rounded-xl border border-white/5">
+                          <p className="text-xs text-slate-500 italic font-medium">No hay análisis registrados</p>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+
                 </div>
-              </div>
 
-            </div>
+                {/* Results Section */}
+                <div className="bg-[#111118] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-6">Resultados del Informe</h3>
+                  <AnalysisResults />
+                </div>
+              </>
+            )}
 
-            {/* Results Section */}
-            <div className="bg-[#111118] border border-white/5 rounded-3xl p-4 sm:p-6 shadow-2xl">
-              <h3 className="text-lg font-bold text-white mb-6">Resultados del Informe</h3>
-              <AnalysisResults />
-            </div>
-
+            {activeTab === "metrics" && (
+              <MetricsDashboard 
+                winRate={accuracyScore} 
+                tradesFound={analysisCount} 
+                userPlan={userPlan}
+                analysisHistory={analysisHistory}
+              />
+            )}
           </div>
 
           {/* --- Footer Completo --- */}

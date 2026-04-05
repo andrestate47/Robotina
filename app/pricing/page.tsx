@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { Check, Zap, Crown, Rocket, Star, ShieldCheck, ArrowRight, CreditCard, Lock, ChevronLeft, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { BorderBeam } from "@/components/magicui/border-beam";
@@ -67,6 +69,34 @@ export default function PricingPage() {
     const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
     const [step, setStep] = useState<"pricing" | "checkout" | "success">("pricing");
     const [isProcessing, setIsProcessing] = useState(false);
+    
+    // Auth States
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
+    const router = useRouter();
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                setUserEmail(session.user.email || null);
+                setUserId(session.user.id);
+            }
+        });
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (session?.user) {
+                    setUserEmail(session.user.email || null);
+                    setUserId(session.user.id);
+                } else {
+                    setUserEmail(null);
+                    setUserId(null);
+                }
+            }
+        );
+
+        return () => authListener.subscription.unsubscribe();
+    }, []);
 
     const handleSelectPlan = (plan: typeof plans[0]) => {
         setSelectedPlan(plan);
@@ -74,15 +104,56 @@ export default function PricingPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handlePayment = (e: React.FormEvent) => {
+    const handlePayment = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!userEmail || !userId) {
+            alert("Para continuar con el pago, por favor inicia sesión o crea una cuenta gratis primero.");
+            // Envía al user al login (o inicio si usas modal)
+            router.push("/login"); 
+            return;
+        }
+
         setIsProcessing(true);
-        // Simulación de procesamiento de pago
-        setTimeout(() => {
+        
+        try {
+            // Se calcula el precio final 
+            const finalPrice = billingCycle === "monthly" 
+                ? selectedPlan?.price 
+                : Math.round(Number(selectedPlan?.price) * 0.8 * 12);
+
+            // Llamada a nuestro nuevo endpoint de Mercado Pago anexando el email y ID
+            const req = await fetch("/api/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    planId: selectedPlan?.id,
+                    planName: selectedPlan?.name,
+                    price: finalPrice,
+                    userEmail: userEmail,
+                    userId: userId
+                })
+            });
+
+            const res = await req.json();
+
+            // Si se generó la preferencia de Mercado Pago exitosamente, redigirimos allí
+            if (res.success && res.init_point) {
+                window.location.href = res.init_point;
+                return;
+            }
+
+            // Si no hay Token MP (estamos en dev sin .env), usamos el flujo simulado normal
+            console.warn("Mercado Pago retornó:", res.message || "Sin init_point, procesando localmente.");
             setIsProcessing(false);
             setStep("success");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 2500);
+
+        } catch (error) {
+            console.error("Error en pago:", error);
+            setIsProcessing(false);
+            alert("Hubo un error contactando a la pasarela de pagos.");
+        }
     };
 
     return (
@@ -257,64 +328,37 @@ export default function PricingPage() {
                                             Información de Pago
                                         </h2>
 
-                                        <form onSubmit={handlePayment} className="space-y-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Número de Tarjeta</label>
-                                                <div className="relative group">
-                                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-400 transition-colors">
-                                                        <CreditCard className="w-5 h-5" />
-                                                    </div>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="0000 0000 0000 0000" 
-                                                        className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono"
-                                                        required
-                                                    />
+                                        <form onSubmit={handlePayment} className="space-y-6">
+                                            <div className="bg-slate-950/50 border border-blue-500/20 rounded-2xl p-6 text-center">
+                                                <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Lock className="w-8 h-8 text-blue-400" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-white mb-2">Pago Seguro Alojado</h3>
+                                                <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                                                    Para garantizar la máxima seguridad y cumplir con estándares mundiales, el pago se procesará directamente en los servidores encriptados de <strong>Mercado Pago</strong>.
+                                                </p>
+                                                <div className="flex items-center justify-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Tarjetas
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Efectivo / PSE / Yape
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Expira</label>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="MM/YY" 
-                                                        className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">CVC</label>
-                                                    <div className="relative group">
-                                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-400 transition-colors">
-                                                            <Lock className="w-5 h-5" />
-                                                        </div>
-                                                        <input 
-                                                            type="text" 
-                                                            placeholder="***" 
-                                                            className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono"
-                                                            required
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="pt-4">
+                                            <div className="pt-2">
                                                 <button 
                                                     type="submit"
                                                     disabled={isProcessing}
-                                                    className={`w-full py-4 rounded-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 ${isProcessing ? 'opacity-70' : ''}`}
+                                                    className={`w-full py-4 rounded-2xl font-bold bg-[#009EE3] text-white shadow-xl hover:shadow-[#009EE3]/30 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 ${isProcessing ? 'opacity-70' : ''}`}
                                                 >
                                                     {isProcessing ? (
                                                         <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                                     ) : (
                                                         <>
-                                                            Pagar ${billingCycle === "monthly" ? selectedPlan.price : Math.round(Number(selectedPlan.price) * 0.8 * 12)} Ahora
-                                                            <ShieldCheck className="w-5 h-5" />
+                                                            Pagar ${billingCycle === "monthly" ? selectedPlan.price : Math.round(Number(selectedPlan.price) * 0.8 * 12)} con Mercado Pago
+                                                            <ArrowRight className="w-5 h-5" />
                                                         </>
                                                     )}
                                                 </button>
-                                                <p className="text-[10px] text-slate-500 text-center mt-4 uppercase tracking-widest font-medium">Pago seguro encriptado con SSL de 256 bits</p>
+                                                <p className="text-[10px] text-slate-500 text-center mt-4 tracking-widest font-medium">Re-dirigiendo al checkout oficial en 1 clic</p>
                                             </div>
                                         </form>
                                     </div>

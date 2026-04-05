@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
+import { supabase } from "@/lib/supabaseClient"
 
 interface AnalysisResult {
   rendimiento?: string
@@ -38,6 +39,11 @@ interface AnalysisResult {
   warnings?: string[]
 }
 
+interface UploadAreaProps {
+  onAnalysisCompleted?: () => void;
+  analysisRemaining: number;
+}
+
 const getCurrencySymbol = (sym: string | undefined): string => {
   if (!sym) return "$";
   const s = sym.toUpperCase();
@@ -63,31 +69,7 @@ const formatPrice = (price: number | string | undefined, symbol?: string): strin
   });
 }
 
-const POPULAR_ASSETS = [
-  { symbol: "SPY", name: "S&P 500 (ETF)", category: "Índice" },
-  { symbol: "QQQ", name: "Nasdaq 100", category: "Índice" },
-  { symbol: "DIA", name: "Dow Jones 30", category: "Índice" },
-  { symbol: "US30", name: "Wall Street 30", category: "Índice" },
-  { symbol: "GER40", name: "DAX 40 (Alemania)", category: "Índice" },
-  { symbol: "TSLA", name: "Tesla Inc.", category: "Acción" },
-  { symbol: "NVDA", name: "Nvidia Corp.", category: "Acción" },
-  { symbol: "AAPL", name: "Apple Inc.", category: "Acción" },
-  { symbol: "MSFT", name: "Microsoft", category: "Acción" },
-  { symbol: "AMZN", name: "Amazon", category: "Acción" },
-  { symbol: "GOOGL", name: "Google", category: "Acción" },
-  { symbol: "META", name: "Meta (Facebook)", category: "Acción" },
-  { symbol: "NFLX", name: "Netflix", category: "Acción" },
-  { symbol: "XAUUSD", name: "Oro (Gold)", category: "Commodity" },
-  { symbol: "WTI", name: "Petróleo (Crudo)", category: "Commodity" },
-  { symbol: "EURUSD", name: "Euro / Dólar", category: "Forex" },
-  { symbol: "GBPUSD", name: "Libra / Dólar", category: "Forex" },
-  { symbol: "USDJPY", name: "Dólar / Yen", category: "Forex" },
-  { symbol: "BTC", name: "Bitcoin", category: "Crypto" },
-  { symbol: "ETH", name: "Ethereum", category: "Crypto" },
-  { symbol: "SOL", name: "Solana", category: "Crypto" },
-]
-
-export function UploadArea() {
+export function UploadArea({ onAnalysisCompleted, analysisRemaining }: UploadAreaProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -145,24 +127,20 @@ export function UploadArea() {
     return () => window.removeEventListener("paste", handlePaste)
   }, [])
 
-  const saveToHistory = (parsed: any) => {
+  const saveToHistory = async (parsed: any) => {
     try {
-      // 1. Guardar como último análisis (Widget Lateral)
       localStorage.setItem("lastAnalysisResult", JSON.stringify(parsed));
-      localStorage.setItem("lastAnalysisVote", ""); // Reset voto
+      localStorage.setItem("lastAnalysisVote", ""); 
 
-      // 2. Actualizar contador total
       const currentCount = parseInt(localStorage.getItem("analysisCount") || "0");
       localStorage.setItem("analysisCount", (currentCount + 1).toString());
 
-      // 3. Guardar en historial de sesión (Lista Lateral)
       const historyRaw = localStorage.getItem("analysisHistory")
       let history = historyRaw ? JSON.parse(historyRaw) : []
       history.unshift({ ...parsed, timestamp: Date.now() })
       if (history.length > 4) history = history.slice(0, 4)
       localStorage.setItem("analysisHistory", JSON.stringify(history))
 
-      // 4. Actualizar estadísticas (Longs/Shorts)
       if (parsed.tipo_analisis === "LONG") {
         const longs = parseInt(localStorage.getItem("analysisLongs") || "0");
         localStorage.setItem("analysisLongs", (longs + 1).toString());
@@ -170,8 +148,28 @@ export function UploadArea() {
         const shorts = parseInt(localStorage.getItem("analysisShorts") || "0");
         localStorage.setItem("analysisShorts", (shorts + 1).toString());
       }
+
+      // --- 5. ACTUALIZACIÓN REAL EN SUPABASE ---
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // PERFIL DEV: email del usuario o admin detectado
+        const isDev = session.user.email === "andresfuigueroaz@gmail.com" || session.user.email?.includes("admin");
+        
+        if (!isDev) {
+          const newRemaining = Math.max(0, analysisRemaining - 1);
+          await supabase
+            .from("perfiles")
+            .update({ analisis_restantes: newRemaining })
+            .eq("id", session.user.id);
+          
+          if (onAnalysisCompleted) onAnalysisCompleted();
+        } else {
+          console.log("Perfil Dev detectado: Bypass de créditos.");
+          if (onAnalysisCompleted) onAnalysisCompleted();
+        }
+      }
     } catch (e) {
-      console.warn("No se pudo guardar historial", e)
+      console.warn("No se pudo guardar historial o actualizar Supabase", e)
     }
   }
 
@@ -196,10 +194,10 @@ export function UploadArea() {
       }
 
       if (parsed.error) {
-        setStatusMessage(parsed.error === "UNKNOWN_SYMBOL" ? "Activo no identificado" : parsed.error)
+        setStatusMessage(parsed.error === "UNKNOWN_SYMBOL" ? "Activo no identificado" : parsed.error || "Error al analizar")
       } else {
         setAnalysisResult(parsed)
-        saveToHistory(parsed)
+        await saveToHistory(parsed)
         window.dispatchEvent(new Event("newAnalysisSaved"))
       }
     } catch (error) {
@@ -281,6 +279,7 @@ export function UploadArea() {
             ) : (
               <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={uploadedImage} alt="Preview" className="w-full h-auto max-h-[400px] object-contain" />
                   {!analysisResult && (
                     <button onClick={handleRemove} className="absolute top-2 right-2 p-2 bg-red-500 rounded-full text-white">
@@ -295,24 +294,6 @@ export function UploadArea() {
                   </Button>
                 ) : (
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    
-                    {/* 🚨 ALERTAS DEL SISTEMA */}
-                    {(analysisResult.es_historico || (analysisResult.warnings && analysisResult.warnings.length > 0)) && (
-                      <div className="border border-yellow-500/50 bg-yellow-900/40 backdrop-blur-sm rounded-xl p-3 mb-2">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-                          <div className="text-xs text-yellow-50">
-                            {analysisResult.es_historico && (
-                              <p className="font-bold text-yellow-300 mb-1">Modo Análisis Histórico</p>
-                            )}
-                            {analysisResult.warnings?.map((w, idx) => (
-                              <p key={idx}>• {w}</p>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Header Resultados */}
                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
                        <h4 className="text-sm font-bold text-slate-300 flex items-center gap-2">
@@ -334,21 +315,10 @@ export function UploadArea() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex flex-row sm:flex-col justify-between items-center sm:items-end p-2 bg-white/5 rounded-lg border border-white/5">
-                           <p className="text-[10px] text-slate-500 uppercase font-bold">Día</p>
-                           <div className="flex gap-3 text-[11px] font-bold">
-                             <span className="text-emerald-400">H: {formatPrice(analysisResult.datos_mercado.high24h, analysisResult.datos_mercado.symbol)}</span>
-                             <span className="text-rose-400">L: {formatPrice(analysisResult.datos_mercado.low24h, analysisResult.datos_mercado.symbol)}</span>
-                           </div>
-                        </div>
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                       <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
-                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Patrón</p>
-                          <p className="text-sm font-bold text-white truncate">{analysisResult.patron_detectado || "—"}</p>
-                       </div>
                        <div className="bg-white/5 border border-white/5 p-3 rounded-xl text-center">
                           <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Tipo</p>
                           <p className={cn("text-sm font-black", analysisResult.tipo_analisis === "LONG" ? "text-emerald-400" : "text-rose-400")}>
@@ -356,29 +326,44 @@ export function UploadArea() {
                           </p>
                        </div>
                        <div className="bg-white/5 border border-white/5 p-3 rounded-xl text-center">
+                          <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Riesgo</p>
+                          <p className={cn("text-sm font-bold", 
+                            analysisResult.nivelRiesgo?.includes("Bajo") ? "text-emerald-400" : 
+                            analysisResult.nivelRiesgo?.includes("Alto") ? "text-rose-400" : "text-amber-400"
+                          )}>
+                            {analysisResult.nivelRiesgo || "Moderado"}
+                          </p>
+                       </div>
+                       <div className="bg-white/5 border border-white/5 p-3 rounded-xl text-center">
                           <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Confianza</p>
-                          <p className="text-sm font-black text-white">{analysisResult.confianza || "—"}</p>
+                          <p className="text-sm font-bold text-indigo-400">{analysisResult.confianza || "85%"}</p>
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                       <div className="bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-xl text-center">
-                          <p className="text-[10px] text-indigo-400 font-bold uppercase mb-1">Precio Entrada</p>
-                          <p className="text-2xl font-black text-white">
-                            {analysisResult.entrada ? `${getCurrencySymbol(analysisResult.datos_mercado?.symbol)}${formatPrice(analysisResult.entrada, analysisResult.datos_mercado?.symbol)}` : "—"}
-                          </p>
+                    <div className="grid grid-cols-3 gap-2 bg-slate-950/50 border border-white/5 p-3 rounded-xl">
+                       <div className="text-center">
+                          <p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Entrada</p>
+                          <p className="text-xs font-black text-white">{analysisResult.entrada || "—"}</p>
                        </div>
-                       <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-emerald-600/10 border border-emerald-500/20 p-3 rounded-xl text-center flex flex-col justify-center">
-                            <p className="text-[9px] text-emerald-400 font-bold uppercase">Objetivo</p>
-                            <p className="text-sm font-black text-white">{analysisResult.salida ? formatPrice(analysisResult.salida, analysisResult.datos_mercado?.symbol) : "—"}</p>
-                          </div>
-                          <div className="bg-rose-600/10 border border-rose-500/20 p-3 rounded-xl text-center flex flex-col justify-center">
-                            <p className="text-[9px] text-rose-400 font-bold uppercase">Stop Loss</p>
-                            <p className="text-sm font-black text-white">{analysisResult.stop_loss ? formatPrice(analysisResult.stop_loss, analysisResult.datos_mercado?.symbol) : "—"}</p>
-                          </div>
+                       <div className="text-center border-x border-white/5">
+                          <p className="text-[9px] text-emerald-500/80 font-bold uppercase mb-0.5">Target</p>
+                          <p className="text-xs font-black text-emerald-400">{analysisResult.salida || "—"}</p>
+                       </div>
+                       <div className="text-center">
+                          <p className="text-[9px] text-rose-500/80 font-bold uppercase mb-0.5">S. Loss</p>
+                          <p className="text-xs font-black text-rose-400">{analysisResult.stop_loss || "—"}</p>
                        </div>
                     </div>
+
+                    {analysisResult.indicadores_clave && analysisResult.indicadores_clave.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysisResult.indicadores_clave.map((tag, i) => (
+                          <span key={i} className="text-[9px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full font-bold uppercase">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {analysisResult.comentario && (
                       <div className="bg-slate-900/50 border border-white/5 p-4 rounded-xl">

@@ -17,7 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`global-cyber-bg font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+      <body 
+        className={`global-cyber-bg font-sans ${GeistSans.variable} ${GeistMono.variable}`}
+        style={{ overflowX: 'hidden', maxWidth: '100vw', margin: 0, padding: 0 }}
+      >
   {children}
   <Analytics />
 </body>
