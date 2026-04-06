@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Usamos el Service Role Key porque el webhook ocurre en el backend sin un usuario logueado en esa petición,
-// y necesitamos permisos de administrador para forzar la actualización del perfil del cliente en la base de datos.
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-);
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+    // Inicializar Supabase dentro del handler para evitar ejecución en build time
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+    );
     try {
         // Mercado Pago puede enviar la data por URL params (notificación IPN) o body (Webhook normal)
         const url = new URL(request.url);
